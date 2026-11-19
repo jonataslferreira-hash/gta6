@@ -1,11 +1,19 @@
+const gate=(kind,x,z,label,tip,keys='WASD / SETAS',touch='JOYSTICK')=>({kind,x,z,label,tip,keys,touch});
 export const getawayRoute=[
-  {kind:'launch',x:208.6,z:119,label:'Saia da avenida do cassino',keys:'W / ↑',touch:'EMPURRE O JOYSTICK',tip:'Segure para ganhar velocidade. Passe pelo primeiro arco.'},
-  {kind:'turn',x:204,z:96,label:'Vire à esquerda no cruzamento',keys:'A D / ← →',touch:'INCLINE O JOYSTICK',tip:'Siga o próximo arco e entre na rua transversal.'},
-  {kind:'drive',x:140,z:96,label:'Corte por Miramar',keys:'W + A / D',touch:'CONTROLE O JOYSTICK',tip:'Atravesse a rua transversal até a avenida seguinte.'},
-  {kind:'drive',x:138,z:32,label:'Suba até o Quiosque Seis',keys:'D / →',touch:'VIRE À DIREITA',tip:'Vire à direita e siga ao norte pelo próximo quarteirão.'},
-  {kind:'drive',x:201,z:30,label:'Volte para a orla',keys:'D / →',touch:'VIRE À DIREITA',tip:'Vire à direita mais uma vez. O carro preto ficou para trás.'},
-  {kind:'stop',x:209,z:73.5,label:'Pare perto do Vestiário Neon',keys:'ESPAÇO',touch:'SEGURE ↑ PARA FREAR',tip:'Vire à direita na avenida, chegue à área dourada e freie.'},
-  {kind:'exit',x:209,z:73.5,label:'Saia do carro',keys:'E / CLIQUE',touch:'TOQUE NA MÃO',tip:'Despiste os seguranças mudando de roupa no Vestiário Neon.'},
+  gate('launch',208.6,111,'Saia da avenida do cassino','Ganhe velocidade e siga o arco.'),
+  gate('turn',204,96,'Vire para Miramar','Siga para oeste pelo cruzamento.'),
+  gate('drive',138,96,'Cruze a Avenida do Sol','Siga pela transversal. Não pare no cruzamento.'),
+  gate('turn',72,96,'Entre na Rua das Palmeiras','Vire ao norte.'),
+  gate('drive',72,30,'Passe pela praça','Mantenha a direção.'),
+  gate('turn',72,-36,'Contorne por trás do mercado','Suba mais um quarteirão e vire a oeste.'),
+  gate('drive',-32,-36,'Atravesse Miramar','O perseguidor ainda está atrás.'),
+  gate('turn',-126,-36,'Volte pela Avenida Violeta','Vire ao sul.'),
+  gate('turn',-126,30,'Pegue a via da orla','Vire a leste. Deixe o trânsito entre vocês.'),
+  gate('drive',-9,30,'Passe pelo viaduto','Continue a leste.'),
+  gate('drive',108,30,'Desça para a orla','Siga na mesma rua até a avenida.'),
+  gate('turn',204,30,'Desligue os faróis na orla','Última conversão, rumo ao Vestiário Neon.'),
+  gate('stop',209,73.5,'Pare perto do Vestiário Neon','Pare dentro da vaga dourada.','ESPAÇO','SEGURE ↑ PARA FREAR'),
+  gate('exit',209,73.5,'Saia do carro','Troque de roupa antes de continuar.','E','TOQUE NA MÃO'),
 ];
 export const cleanState=()=>({steer:0,vx:0,vz:0});
 export function advanceGetaway(progress,{distance,speed,inCar}){
@@ -13,5 +21,5 @@ export function advanceGetaway(progress,{distance,speed,inCar}){
   if(step.kind==='exit')return !inCar?progress+1:progress;
   if(!inCar)return progress;
   if(step.kind==='stop')return distance<7.3&&Math.abs(speed)<.66?progress+1:progress;
-  return distance<(progress===0?6:6.5)?progress+1:progress;
+  return distance<(step.kind==='turn'?8:step.kind==='launch'?7:11)?progress+1:progress;
 }

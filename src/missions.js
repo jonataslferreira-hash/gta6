@@ -15,9 +15,9 @@ export const intro = [
  ['Luzia','Põe o cinto. A gente conversa quando eles não estiverem mais no espelho.','cold'],
 ];
 export const getawayLines = [
- ['Davi','O carro preto acelerou. Vê a entrada do calçadão? Entra ali quando eu avisar.'],
- ['Luzia','Passamos. Agora fica quieto um segundo e escuta se eles viraram também.'],
- ['Davi','Foram reto. Eu desço aqui e vou pelo calçadão. Me encontra atrás do Quiosque Seis.'],
+ ['Davi','Luz. O carro preto acelerou. Tá vendo o calçadão? Entra ali. Quando eu falar... vai!'],
+ ['Luzia','Passamos. Um segundo, Davi. Escuta comigo. Será que eles viraram também?'],
+ ['Davi','Foram reto. Ah... eu desço aqui. Me encontra atrás do quiosque seis, tá? Não demora.'],
 ];
 export const campaign = [
  {name:'01 / A mala errada',steps:[
@@ -29,7 +29,12 @@ export const campaign = [
      ['Davi','Você fala igual ao pai quando me pegava mentindo.','wry'],
      ['Luzia','A diferença é que ele acreditava em você no fim.','cold']
    ]},
-   {kind:'drive',x:209.2,z:-19,label:'Saída pela orla',goal:'Pegue o carro da fuga e atravesse o primeiro portal dourado.'},
+   {kind:'drive',x:204,z:-77,label:'Saída pela orla',goal:'Volte à avenida pelo lado de trás da oficina.',via:[
+     {x:204,z:30,goal:'Pegue um carro. Comece por sair da avenida do quiosque.'},
+     {x:138,z:30,goal:'Contorne a quadra, longe das câmeras da orla.'},
+     {x:138,z:-102,goal:'Siga até a rua da oficina pelo interior do bairro.'},
+     {x:204,z:-102,goal:'Volte para a avenida costeira só depois do último cruzamento.'},
+   ]},
    {kind:'park',x:208.8,z:-68,label:'Esconder o carro',goal:'Estacione na vaga marcada e saia para abrir a mala.'},
    {kind:'talk',x:214,z:-68,label:'Abrir a mala roubada',goal:'Saia do carro e confira o conteúdo da mala.',lines:[
      ['Luzia','Fotos de carregamentos. Nomes de policiais. Até os pagamentos tão anotados.','shock'],
@@ -39,7 +44,7 @@ export const campaign = [
  {name:'02 / Mesa do fundo',steps:[
    {kind:'talk',x:-51,z:84,label:'Falar com Nara',goal:'Leve as fotos do cassino a Nara, no Café Sereia.',lines:[
      ['Nara','O Avelar lava dinheiro no cassino. Isso aí é a contabilidade paralela dele. E olha quem recebeu ontem.','wry'],
-     ['Luzia','Davi. Não foi o Avelar que comprou a planta. Foi meu irmão que vendeu o nosso assalto.','shock'],
+     ['Luzia','É a assinatura do Davi. Ele disse que não conhecia o homem da planta. Nara, de onde veio isso?','shock'],
      ['Nara','Tem uma fita que explica o pagamento. Era pra ir num barco hoje. Arruma o negativo certo e eu te digo o píer.','tense']
    ]},
    {kind:'puzzle',x:-51,z:86,label:'Comparar os negativos',goal:'Use as fotos roubadas para identificar o píer da entrega.',puzzle:{title:'O detalhe no reflexo',clue:'O brasão do Porto Violeta tem um círculo acima de duas ondas. Qual negativo mostra esse símbolo?',symbols:['≈ ≈ / ◯','◯ / ≈ ≈','◯ / △ △'],order:[1]}},
@@ -47,9 +52,9 @@ export const campaign = [
  {name:'03 / O lado de fora',steps:[
    {kind:'use',x:238,z:-222,label:'Abrir a caixa de sinal',goal:'Chegue ao Porto Violeta e encontre a caixa que controla as luzes do píer.'},
    {kind:'puzzle',x:238,z:-222,label:'Dar o sinal combinado',goal:'Use o código atrás da foto para que o vigia deixe o cais livre.',puzzle:{title:'Sinal do cais',clue:'Atrás da foto está escrito: “acenda a lua; a onda vem antes do sol”.',symbols:['SOL','LUA','ONDA'],order:[1,2,0]}},
-   {kind:'talk',x:252,z:-222,label:'Roubar a fita',goal:'Pegue a gravação escondida no barco Segunda Chance.',lines:[
-     ['Luzia','Tô com a fita. E tô vendo teu nome no recibo, Davi.','anger'],
-     ['Davi','Eu peguei o dinheiro. Não sabia que ele ia fechar as saídas com a gente lá dentro.','fear'],
+   {kind:'talk',x:252,z:-222,label:'Roubar a fita',goal:'Compare a fita do cassino com a gravação original, no barco Segunda Chance.',lines:[
+     ['Luzia','Teu nome tá no recibo, Davi. Eu já tinha visto a assinatura na foto... mas queria estar errada.','anger'],
+     ['Davi','A fita do cassino não conta a história toda, Luzia. Essa aí começa antes. Eu devia ter te falado antes de a gente entrar naquele lugar.','fear'],
      ['Luzia','Me encontra no Lúmen. Se você sumir agora, nem precisa ouvir o que tem nessa fita.','tense']
    ]},
  ]},

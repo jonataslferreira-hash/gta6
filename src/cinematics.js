@@ -1,11 +1,12 @@
 import * as T from 'three';
-import { person } from './actors.js';
+import { person, riggedPerson } from './actors.js';
 
 export const castStyles={
   Luzia:{portrait:'luzia',type:0,skin:'#b8765c',hair:'#352336',jacket:'#ac4276',pants:'#392e49'},
   Davi:{portrait:'davi',type:1,skin:'#bb8668',hair:'#322632',jacket:'#3b6371',pants:'#43394d'},
   Nara:{portrait:'nara',type:1,skin:'#9b5d49',hair:'#352039',jacket:'#507868',pants:'#3c3352'},
 };
+export const miragemOutfit={id:'miragem-stage',colors:{jacket:[117,55,77],pants:[46,44,55]}};
 const locations={
   casino:['CASINO MIRAGEM','SALÃO PRIVADO'],
   opening:['OCEAN BEACH','19:41 · DOMINGO'],
@@ -16,12 +17,15 @@ const locations={
   tape:['CLUBE LÚMEN','LADO B'],
 };
 export const sceneLabel=id=>locations[id]||locations.meetup;
-export function makeCinematics(scene,world){
+export function makeCinematics(scene,world,{asset=null,makeDavi=null}={}){
   const stage=new T.Group();stage.visible=false;scene.add(stage);
   const cast=Object.fromEntries(Object.entries(castStyles).map(([name,style])=>[name,person(style)]));
-  for(const actor of Object.values(cast))stage.add(actor.root);
+  const casinoCast={Luzia:asset?riggedPerson(asset,{performance:true}):person(castStyles.Luzia),Davi:makeDavi?.({performance:true})||person(castStyles.Davi)};
+  for(const actor of [...Object.values(cast),...Object.values(casinoCast)])stage.add(actor.root);
+  const workingCast=()=>place==='casino'?casinoCast:cast;
   const key=new T.PointLight('#ffd1b6',9.7,8,2), rim=new T.PointLight('#ff7ac9',13,8,2), fill=new T.PointLight('#8dd8ef',5.0,7,2);
   stage.add(key,rim,fill);
+  const emergency=new T.PointLight('#ab182f',0,7,1.9);emergency.position.set(1.8,2.85,-2.15);stage.add(emergency);
   const evidence=new T.Group();stage.add(evidence);
   const shape=(parent,color,x,y,z,w,h,d,metalness=0)=>{const m=new T.Mesh(new T.BoxGeometry(w,h,d),new T.MeshStandardMaterial({color,roughness:.53,metalness}));m.position.set(x,y,z);parent.add(m);return m;};
   const bag=new T.Group(), lid=new T.Group(), deck=new T.Group();evidence.add(bag,deck);bag.add(lid);
@@ -50,7 +54,8 @@ export function makeCinematics(scene,world){
     place=id;stage.visible=true;other=['cafe'].includes(place)?'Nara':'Davi';
     const heading=[0,Math.PI,Math.PI/2,-Math.PI/2].find(h=>[[-1.02,-2.3],[1.02,-2.3],[0,-2.65],[0,.18]].every(([x,z])=>!world.collides(p.x+Math.cos(h)*x+Math.sin(h)*z,p.z-Math.sin(h)*x+Math.cos(h)*z,.25,true)))||0;
     stage.position.set(p.x,id==='casino'?p.y:.125,p.z);stage.rotation.y=id==='casino'?0:heading;
-    for(const [name,c] of Object.entries(cast))c.root.visible=name==='Luzia'||(name===other&&place!=='briefcase');
+    for(const [name,c] of Object.entries(cast))c.root.visible=place!=='casino'&&(name==='Luzia'||(name===other&&place!=='briefcase'));
+    for(const c of Object.values(casinoCast))c.root.visible=place==='casino';
     cast.Luzia.outfit(outfit);cast.Luzia.root.position.set(-.37,0,0);cast.Luzia.root.rotation.y=-.30;
     cast[other].root.position.set(.40,0,.035);cast[other].root.rotation.y=.36;
     key.position.set(-.58,2.36,-1.38);rim.position.set(.58,1.89,.87);fill.position.set(1.52,1.42,-1.03);
@@ -63,6 +68,16 @@ export function makeCinematics(scene,world){
       key.intensity=3.8;rim.intensity=1.4;fill.intensity=.45;
       evidence.position.set(.31,.82,-.02);evidence.scale.setScalar(.69);stand.visible=false;
     }else{key.intensity=9.7;rim.intensity=13;fill.intensity=5;evidence.scale.setScalar(1);}
+    if(place==='casino'){
+      world.hemi.intensity=.60;world.sun.intensity=.29;
+      casinoCast.Luzia.outfit?.(outfit.id==='original'?miragemOutfit:outfit);
+      casinoCast.Luzia.root.position.set(-.37,0,.02);casinoCast.Davi.root.position.set(.39,0,-.08);
+      casinoCast.Luzia.root.rotation.y=-2.83;casinoCast.Davi.root.rotation.y=2.79;
+      key.position.set(-.88,2.17,1.27);key.intensity=4.3;
+      rim.position.set(.70,2.12,-1.07);rim.intensity=2.3;
+      fill.position.set(1.58,1.84,.52);fill.intensity=1.4;
+      evidence.visible=bag.visible=stand.visible=true;deck.visible=false;evidence.position.set(.80,.99,-.85);evidence.rotation.y=-.16;
+    }else emergency.intensity=0;
     stage.updateMatrixWorld(true);
   }
   function line(next,i,emotion){
@@ -74,12 +89,21 @@ export function makeCinematics(scene,world){
   function frame(dt,cam,voice){
     age+=dt;
     if(ride){stage.position.copy(ride.position);stage.rotation.y=ride.rotation.y;}
-    for(const [name,c] of Object.entries(cast))if(c.root.visible){
+    const performers=workingCast();
+    for(const [name,c] of Object.entries(performers))if(c.root.visible){
       const driver=name==='Luzia',speaking=name===speaker;
       const glance=ride?(driver?(index===3?-.88:speaking?-.19:0):(index===4?.56:1)):(driver?-1:1);
       const lean=ride&&index>=3?(index===3?Math.sin(Math.min(Math.PI,age*2.8))*.13:.025):0;
-      c.animate(dt,0,0,{speaking,voice,mood:speaking?mood:listenerMood,look:glance,lean,beat:age,seated:!!ride,driver});
+      if(place==='casino'){
+        const cross=driver?(index===0?.53:.68):(index===0&&age<2.2?-.56:-.45);
+        const lookDoor=driver?age<1.0&&index===0:age>2.2&&index===0;
+        const shift=index===1?T.MathUtils.smootherstep(age,2.0,3.25):0;
+        c.root.position.x=(driver?-.37:.39)+(driver?.09:-.11)*shift;
+        c.root.rotation.y=driver?-2.83+.18*shift:2.79-.15*shift;
+        c.animate(dt,0,0,{speaking,voice,look:lookDoor?(driver?.84:.88):cross,pitch:lookDoor?-.14:(speaking?-.035:.07),gesture:speaking&&index===1&&age>2.4&&age<4.6,mood:speaking?mood:listenerMood,beat:age});
+      }else c.animate(dt,0,0,{speaking,voice,mood:speaking?mood:listenerMood,look:glance,lean,beat:age,seated:!!ride,driver});
     }
+    if(place==='casino')lid.rotation.x=1.06;
     if(place==='briefcase')lid.rotation.x=Math.min(1.63,age*2.7+index*1.63);
     if(place==='opening'&&index>=2)lid.rotation.x=Math.min(.45,age*1.1+(index-2)*.45);
     const drift=Math.sin(age*.8)*.025, push=Math.min(.12,age*.022),mobile=cam.aspect<.85;
@@ -97,8 +121,18 @@ export function makeCinematics(scene,world){
         active='cockpit';a.set(seat*.42+drift*.18,1.22,-.51+push*.14);b.set(seat,1.11,.20);cam.fov=mobile?40:37;
       }
     }else if(place==='casino'){
-      const isLuzia=tag==='Luzia',x=isLuzia?-.37:.40;
-      a.set(x+(isLuzia?-.57:.48)+drift,1.71,-(mobile?1.29:1.20));b.set(x+(isLuzia?.20:-.20),1.49,.08);cam.fov=mobile?36:43;
+      emergency.intensity=1.1+Math.sin((age+index*.86)*2.1)**2*5.4;
+      if(index===0&&age<.82){
+        active='tape';a.set(.46+push,1.54,.13);b.set(.81,1.08,-.85);cam.fov=mobile?41:35;
+      }else if(index===0&&age>3.32&&age<4.36){
+        active='door';a.set(.95+drift,1.42,.58);b.set(2.13,1.34,-2.82);cam.fov=mobile?36:39;
+      }else if(index===1&&age>4.10&&!mobile){
+        active='pair';a.set(.07+drift,1.55,2.06-push);b.set(.015,1.37,0);cam.fov=42;
+      }else{
+        active='reaction';const x=performers[tag].root.position.x;
+        a.set(x+(tag==='Luzia'?-.23:.20)+drift,tag==='Luzia'?1.60:1.66,(mobile?1.44:1.31)-push);
+        b.set(x+(mobile?0:tag==='Luzia'?.055:-.07),tag==='Luzia'?1.51:1.58,.04);cam.fov=mobile?36:40;
+      }
     }else if(active==='insert'){
       a.set(.23,1.48,-.77+push);b.set(.003,1.03,-.018);cam.fov=42;
     }else if(active==='pair'&&!mobile){
@@ -111,5 +145,5 @@ export function makeCinematics(scene,world){
     stage.updateMatrixWorld(true);from.copy(stage.localToWorld(a));at.copy(stage.localToWorld(b));cam.position.copy(from);cam.lookAt(at);cam.updateProjectionMatrix();
     return active;
   }
-  return {start,line,frame,restore,stop(smooth=false){stage.visible=false;ride=null;gradeTransition=3.5;if(!smooth)restore(3.5);}};
+  return {start,line,frame,restore,dispose(){for(const c of Object.values(casinoCast))c.disposeOutfits?.();},stop(smooth=false){stage.visible=false;ride=null;gradeTransition=3.5;if(!smooth)restore(3.5);}};
 }

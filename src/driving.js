@@ -3,8 +3,14 @@ const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const blend=(a,b,k,dt)=>a+(b-a)*(1-Math.exp(-k*dt));
 function substep(p,yaw,speed,dynamics,input,dt,blocked){
   const {throttle,side,brake,sand}=input;
-  const target=throttle>0?throttle*(sand?12:23):throttle*5.8,opposite=target*speed<0;
-  const accel=brake?13:opposite?9.6:throttle===0?(sand?3.3:1.3):sand?2.8:4.5;
+  const magnitude=Math.abs(speed),target=throttle>0?throttle*(sand?13.5:27):throttle*5.4,opposite=target*speed<0;
+  const up=[0,6.5,11.5,17.2,23.4,270],down=[0,0,4.1,8.5,13.5,18.6];
+  let gear=dynamics.gear||1,shift=Math.max(0,(dynamics.shift||0)-dt);
+  if(!shift&&speed>=-.14){if(magnitude>up[gear]){gear++;shift=.23;}else if(gear>1&&magnitude<down[gear]){gear--;shift=.17;}}
+  if(speed<-.14)gear=1;
+  const rpm=blend(dynamics.rpm||850,Math.max(850,Math.min(5900,1010+magnitude*[0,684,362,255,194,161][gear]+Math.max(0,throttle)*760)),shift>0?4.2:8.2,dt);
+  const driveForce=(sand?2.72:4.6)*(shift>0?.31:1)*(1-.30*Math.min(1,magnitude/27));
+  const accel=brake?12.4:opposite?9.4:throttle===0?(sand?2.9:.68+magnitude*.067):driveForce;
   const previous=speed;speed+=clamp((brake?0:target)-speed,-accel*dt,accel*dt);
   const steer=blend(dynamics.steer,side,Math.abs(speed)>12?6.2:9.5,dt);
   const turn=-steer*Math.sign(speed)*clamp(Math.abs(speed)/5.5,0,1)*(brake?1.95:1.54)/(1+Math.abs(speed)*.028);
@@ -23,7 +29,7 @@ function substep(p,yaw,speed,dynamics,input,dt,blocked){
     impact=Math.hypot(useX?0:vx,useZ?0:vz);vx=useX?vx*.77:0;vz=useZ?vz*.77:0;
     speed=-Math.sin(stable)*vx-Math.cos(stable)*vz;
   }
-  return {yaw:moved.yaw,speed,impact,steer,vx,vz,acceleration:(speed-previous)/dt};
+  return {yaw:moved.yaw,speed,impact,steer,vx,vz,gear,shift,rpm,acceleration:(speed-previous)/dt};
 }
 
 export function driveStep(p,yaw,speed,dynamics,input,dt,blocked){
