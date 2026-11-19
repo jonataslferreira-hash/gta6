@@ -135,3 +135,5 @@ $('#close-dialog').onclick=()=>dialog.close(); dialog.addEventListener('close',(
 dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
 window.addEventListener('keydown',e=>{if(game||dialog.open||busy||e.defaultPrevented)return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();update((selected+(e.key==='ArrowLeft'?2:1))%3);}});
 update(0,false); apply();
+app.hidden = false;
+$('#startup').remove();

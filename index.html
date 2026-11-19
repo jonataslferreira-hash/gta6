@@ -8,13 +8,25 @@
     <title>Vice City — Maré Alta</title>
   </head>
   <body>
-    <div id="app">
-      <main style="position:fixed;inset:0;display:grid;place-content:center;padding:24px;text-align:center;background:#100c1b;color:#fff5ee;font:16px/1.5 system-ui,sans-serif">
-        <h1 style="margin:0;color:#ffab9c">Vice City — Maré Alta</h1>
-        <p>Carregando o jogo. Se esta mensagem persistir, tente recarregar a página.</p>
-        <noscript>Ative o JavaScript para jogar.</noscript>
-      </main>
-    </div>
+    <main id="startup" style="position:fixed;inset:0;display:grid;place-content:center;padding:24px;text-align:center;background:#100c1b;color:#fff5ee;font:16px/1.5 system-ui,sans-serif">
+      <h1 style="margin:0;color:#ffab9c">Vice City — Maré Alta</h1>
+      <p id="startup-message" role="status">Carregando o jogo…</p>
+      <noscript>Ative o JavaScript para jogar.</noscript>
+    </main>
+    <div id="app" hidden></div>
+    <script>
+      setTimeout(function () {
+        var startup = document.getElementById('startup');
+        if (!startup) return;
+        document.getElementById('startup-message').textContent =
+          'O menu não carregou. Tente recarregar ou abrir o outro endereço do jogo.';
+        var alternate = document.createElement('a');
+        alternate.href = location.pathname.endsWith('/jogar.html') ? './' : './jogar.html';
+        alternate.style.color = '#ffab9c';
+        alternate.textContent = 'Abrir no outro endereço';
+        startup.appendChild(alternate);
+      }, 8000);
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
