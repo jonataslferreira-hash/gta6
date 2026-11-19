@@ -1,8 +1,9 @@
 import * as T from 'three';
 import { carShape, circleBox, createCollision } from './collision.js';
-import { wardrobe, streetSpots } from './district-services.js';
-export const XS=[-456,-390,-324,-258,-192,-126,-60,6,72,138,204], ZS=[-300,-234,-168,-102,-36,30,96,162,228,294,360];
-export const districts=[{x:151,z:70,name:'Ocean Beach'},{x:114,z:-192,name:'Porto Violeta'},{x:-152,z:-133,name:'Distrito Art Déco'},{x:-181,z:167,name:'Miramar'},{x:57,z:193,name:'South Point'},{x:-277,z:-263,name:'Ilha da Alfândega'},{x:-393,z:161,name:'Vila Mangue'},{x:-100,z:340,name:'Terminal Sul'}];
+import { cityClock } from './daylight.js';
+import { wardrobe, streetSpots, home } from './district-services.js';
+export const XS=[-654,-588,-522,-456,-390,-324,-258,-192,-126,-60,6,72,138,204], ZS=[-300,-234,-168,-102,-36,30,96,162,228,294,360,426,492];
+export const districts=[{x:151,z:70,name:'Ocean Beach'},{x:114,z:-192,name:'Porto Violeta'},{x:-152,z:-133,name:'Distrito Art Déco'},{x:-181,z:167,name:'Miramar'},{x:57,z:193,name:'South Point'},{x:-277,z:-263,name:'Ilha da Alfândega'},{x:-393,z:161,name:'Vila Mangue'},{x:-100,z:417,name:'Doca Sul'},{x:-590,z:151,name:'Jardim das Palmeiras'},{x:-557,z:-166,name:'Distrito Ferroviário'}];
 let seed=9;
 export function random(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
 export function createWorld(scene, night){
@@ -29,12 +30,12 @@ export function createWorld(scene, night){
     }
     const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(v,3));g.computeVertexNormals();return g;
   }
-  const geometry={frond:frondGeometry(),column:new T.CylinderGeometry(.5,.5,1,16),asphalt:new T.BoxGeometry(),box:new T.BoxGeometry(),cyl:new T.CylinderGeometry(.48,.55,1,8),leaf:new T.SphereGeometry(.5,6,3),tri:new T.ConeGeometry(.6,1,4)};
-  const groups=new Map(), blocks=[],props=[];
+  const geometry={frond:frondGeometry(),column:new T.CylinderGeometry(.5,.5,1,16),asphalt:new T.BoxGeometry(),facade:new T.BoxGeometry(),glass:new T.BoxGeometry(),box:new T.BoxGeometry(),cyl:new T.CylinderGeometry(.48,.55,1,8),leaf:new T.SphereGeometry(.5,6,3),tri:new T.ConeGeometry(.6,1,4)};
+  const groups=new Map(), blocks=[],props=[],segments=[];
   const solid=(x,z,w,d,yaw=0)=>props.push({x,z,w,d,yaw,camera:false});
   const angles=new T.Euler(), pos=new T.Vector3(), scale=new T.Vector3(), q=new T.Quaternion(), matrix=new T.Matrix4();
   function put(c,x,y,z,w,h,d,kind='box',rx=0,ry=0,rz=0,em=false,shadow=true){
-    const key=`${kind}:${em}:${shadow}`; if(!groups.has(key))groups.set(key,{kind,matrices:[],colors:[],em,shadow});const group=groups.get(key);
+    const tileX=Math.floor(x/112),tileZ=Math.floor(z/112),wide=w>70||d>70;const sector=wide?'wide':`${tileX}:${tileZ}`;const key=`${kind}:${em}:${shadow}:${sector}`;if(!groups.has(key))groups.set(key,{kind,matrices:[],colors:[],em,shadow,tileX,tileZ,wide});const group=groups.get(key);
     angles.set(rx,ry,rz);q.setFromEuler(angles);matrix.compose(pos.set(x,y,z),q,scale.set(w,h,d));group.matrices.push(matrix.clone());group.colors.push(new T.Color(c));
   }
   const ground=(c,x,z,w,d,y,kind='box')=>put(c,x,y-.035,z,w,.07,d,kind,0,0,0,false,false);
@@ -44,8 +45,10 @@ export function createWorld(scene, night){
 #include <colorspace_fragment>
 }`}));ocean.rotation.x=-Math.PI/2;ocean.position.set(459,-.212,0);scene.add(ocean);
   for(let i=0;i<200;i++){let x=260+random()*190,z=(random()-.5)*748;put(i%2?'#aa9dc4':'#829fc5',x,-.197,z,1+random()*6,.005,.07+random()*.14,'box',0,0,0,false,false);}
-  for(const x of XS){ground('#373451',x,30,17,681,.01,'asphalt'); for(let z=-300;z<363;z+=7.5) ground('#d2a494',x,z,.16,2.75,.025);ground('#9c859b',x-7.65,30,.13,677,.026);ground('#9c859b',x+7.65,30,.13,677,.026);}
-  for(const z of ZS){ground('#373451',-125,z,679,17,.014,'asphalt');for(let x=-456;x<212;x+=7.5) if(XS.every(a=>Math.abs(a-x)>9)) ground('#d2a494',x,z,2.75,.16,.026);}
+  const left=XS[0],bottom=ZS.at(-1),north=ZS[0],midZ=(north+bottom)/2,spanZ=bottom-north+22;
+  ground('#a18b9c',(left+211)/2,midZ,211-left+43,spanZ+18,-.065);
+  for(const x of XS){ground('#373451',x,midZ,17,spanZ,.01,'asphalt'); for(let z=north;z<bottom+3;z+=7.5) ground('#d2a494',x,z,.16,2.75,.025);ground('#9c859b',x-7.65,midZ,.13,spanZ-4,.026);ground('#9c859b',x+7.65,midZ,.13,spanZ-4,.026);}
+  for(const z of ZS){ground('#373451',(left+204)/2,z,204-left+23,17,.014,'asphalt');for(let x=left;x<212;x+=7.5) if(XS.every(a=>Math.abs(a-x)>9)) ground('#d2a494',x,z,2.75,.16,.026);}
   for(const x of XS) for(const z of ZS) for(let i=0;i<8;i++){ground('#e0b8bf',x-5.7+i*1.62,z+8,.78,1.75,.032);ground('#e0b8bf',x+8,z-5.7+i*1.62,1.7,.78,.031);}
   const palette=['#bb809e','#e4a196','#b1a0cc','#d4a9a8','#8e98be','#b4a9c6','#dca38e','#89a8b2'];
   function sign(text,x,y,z,w=10,h=1.6,angle=0, tint='#ffa6c7'){
@@ -68,12 +71,12 @@ export function createWorld(scene, night){
   const shopNames=['AURORA','PALM COURT','VIOLETA','HOTEL SOL','CAFÉ SEREIA','CLUBE LÚMEN','MIRAMAR','MARÉ MOTEL'];
   function building(x,z,w,d,h,col,variant,name){
     blocks.push({x,z,w,d}); const trim=new T.Color(col).lerp(new T.Color('#fcedde'),.37);
-    put(col,x,h/2+.13,z,w,h,d);put(trim,x,h+.25,z,w+.7,.49,d+.7);put(col,x,h+.57,z,w*.75,.65,d*.75);
+    put(col,x,h/2+.13,z,w,h,d,'facade');put(trim,x,h+.25,z,w+.7,.49,d+.7);put(col,x,h+.57,z,w*.75,.65,d*.75);
     if(variant===0){put(trim,x,h+1,z-d*.21,w*.28,1.55,d*.51);put(col,x,h+2.0,z-d*.21,w*.19,.65,d*.34);}
     for(let fl=0;fl<Math.floor(h/2.65);fl++){
       const y=1.65+fl*2.65;const tint=fl===0||random()>.6?(night?'#b3829f':'#6a597a'):'#484c75';
-      if(variant===1){put(tint,x,y,z+d/2+.025,w*.88,1.05,.085);put(tint,x+w/2+.028,y,z,.08,1.05,d*.84);}
-      else {for(let j=-1;j<=1;j++)put(tint,x+j*w*.28,y,z+d/2+.025,w*.20,1.2,.09);for(let j=-1;j<=1;j++)put(tint,x+w/2+.03,y,z+j*d*.29,.09,1.2,d*.19);}
+      if(variant===1){put(tint,x,y,z+d/2+.025,w*.88,1.05,.085,'glass');put(tint,x+w/2+.028,y,z,.08,1.05,d*.84,'glass');}
+      else {for(let j=-1;j<=1;j++)put(tint,x+j*w*.28,y,z+d/2+.025,w*.20,1.2,.09,'glass');for(let j=-1;j<=1;j++)put(tint,x+w/2+.03,y,z+j*d*.29,.09,1.2,d*.19,'glass');}
       if(fl>0&&(variant===0||variant===2))put(trim,x,y-.74,z+d/2+.13,w+.16,.13,.32);
       for(let j=-1;j<=1;j++){
         const xw=x+w/2+.057,zw=z+j*d*.29;const lit=(fl+j+Math.floor(z))%4===0;
@@ -102,7 +105,16 @@ export function createWorld(scene, night){
   for(let ix=0;ix<XS.length-1;ix++) for(let iz=0;iz<ZS.length-1;iz++){
     const x=(XS[ix]+XS[ix+1])/2,z=(ZS[iz]+ZS[iz+1])/2;ground(ix<2?'#779095':iz>=9?'#987891':ix>=8?'#a5879c':'#988598',x,z,48.5,48.5,.12);
     const plaza=((ix-2)+iz*3)%11===4|| (ix===XS.length-2&&[1,6].includes(iz));
-    if(plaza){ground(ix<2?'#59857c':'#637e83',x,z,39,39,.14);ground('#bda3ad',x,z,3,39,.16);ground('#bda3ad',x,z,39,3,.16);for(const a of [-1,1])for(const b of [-1,1])palm(x+a*14,z+b*14,5+random()*2);bench(x-4,z+8);bench(x+4,z-8);put('#cf9eae',x,.22,z,6,.3,6,'cyl');put('#6696ae',x,.39,z,4.9,.06,4.9,'cyl');}
+    const civic=(x< -455 || z>360);
+    if(civic&&x< -455&&z<65){
+      ground('#777786',x,z,48,45,.14);for(const v of [-13,11]){building(x+v,z-7,17,26,5.2,v<0?'#8b9c9d':'#b68784',2,null);put('#705a70',x+v,5.85,z-7,15,.33,19);}
+      for(const v of [-14,-8,-2,4,10]){put('#a77977',x+v,1.12,z+15,5.6,2.1,2.6);for(let k=-2;k<=2;k++)put('#ba9a94',x+v+k*.96,1.10,z+16.33,.12,1.97,.086);solid(x+v,z+15,5.61,2.64);}
+      if(iz%2===0)sign('ARMAZÉNS VIOLETA',x,3.0,z+24,8,.88,0,'#ecc4a9');
+    } else if(civic&&(ix+iz)%3!==0){
+      ground('#789288',x,z,48.6,49,.141);for(const q of [-1,1])for(const v of [-1,1]){const cx=x+q*14,cz=z+v*13;building(cx,cz,8.7,10.6,3.65,q<0?'#cfb39d':'#cca3aa',v<0?0:2,null);ground('#b49fa4',cx,cz+9,3.4,7,.156);palm(cx-2.85,cz+9,4.55);}
+      ground('#ad939d',x,z,3.8,46,.156);bench(x+2.5,z+6);
+      if(iz===8||iz===11)sign(z>360?'DOCA SUL':'JARDIM DAS PALMEIRAS',x,2.4,z+23,8,.91,0,'#bce7d5');
+    } else if(plaza){ground(ix<2?'#59857c':'#637e83',x,z,39,39,.14);ground('#bda3ad',x,z,3,39,.16);ground('#bda3ad',x,z,39,3,.16);for(const a of [-1,1])for(const b of [-1,1])palm(x+a*14,z+b*14,5+random()*2);bench(x-4,z+8);bench(x+4,z-8);put('#cf9eae',x,.22,z,6,.3,6,'cyl');put('#6696ae',x,.39,z,4.9,.06,4.9,'cyl');}
     else for(let a=0;a<2;a++) for(let b=0;b<2;b++){
       const h=4+random()*(ix<4&&iz<5?28:11);const w=16+random()*5,d=15+random()*6;
       let name=(ix>=8&&a===1&&b===1)?shopNames[(ix+iz)%shopNames.length]:null;
@@ -256,6 +268,21 @@ export function createWorld(scene, night){
     for(const dx of [0,.22])put(dx?'#beb2bb':'#776981',212.83+dx,.093,z,.15,.041,2.6,'box',0,0,0,false,false);
     put('#5d5065',213.84,.122,z-1,.57,.018,.34,'box',0,0,0,false,false);
   }
+  // Shared home: room open toward the walkway, with a real collision opening.
+  {
+    const {x,z}=home;ground('#aa8094',x,z,7.2,8.8,.18);ground('#d09e9d',x,z,6.58,8.30,.20);
+    for(let k=-4;k<=4;k++)put('#ae8294',x,.205,z+k*.875,6.52,.013,.046);
+    put('#ca8795',x+3.4,1.46,z,.27,2.68,8.7);put('#d78e98',x,1.46,z-4.30,7,.27+2.41,.24);put('#d78e98',x,1.46,z+4.30,7,2.68,.24);
+    const houseWalls=[[x+3.4,z,.27,8.7],[x,z-4.3,7,.24],[x,z+4.3,7,.24],[x-3.42,z-3.16,.25,2.26],[x-3.42,z+3.0,.25,2.58]];
+    for(const [wx,wz,w,d] of houseWalls){blocks.push({x:wx,z:wz,w,d});}
+    for(const zz of [-3.16,3.0])put('#b67589',x-3.42,1.48,z+zz,.25,2.7,zz<0?2.26:2.58);
+    put('#6c536c',x,2.89,z,7.68,.21,9.24);put('#f8bd98',x-3.80,2.67,z,.105,.076,8.3,'box',0,0,0,true);
+    put('#765968',x+1.58,.4,z-2.48,2.1,.35,2.86);put('#bfb1bf',x+1.57,.65,z-2.52,1.99,.21,2.73);put('#5e7e88',x+1.57,.79,z-2.25,2.01,.10,2.15);put('#efd0b6',x+1.57,.82,z-3.48,1.89,.20,.61);solid(x+1.57,z-2.48,2.11,2.87);
+    put('#77526c',x+1.96,.56,z+2.57,.85,.77,2.15);put('#94839a',x+1.9,1.12,z+2.56,.57,.78,2.18);put('#e6a4aa',x+1.43,.76,z+2.0,.42,.27,.51,'leaf');solid(x+1.92,z+2.57,.91,2.2);
+    put('#734c60',x-.37,.57,z+1.64,1.32,.08,.61);for(const xx of [-.89,.11])put('#573e57',x+xx,.33,z+1.65,.065,.45,.059);solid(x-.37,z+1.64,1.32,.61);
+    put('#498b7d',x-1.7,.33,z-2.65,.48,.38,.45,'column');put('#87a993',x-1.7,.72,z-2.65,.56,.67,.45,'leaf');solid(x-1.7,z-2.65,.49,.48);
+    sign('CASA LUZIA & DAVI',x-3.85,2.59,z,3.55,.57,-Math.PI/2,'#ffdec2');
+  }
   // Small props yield to a bumper. Heavy furniture remains in the spatial collision index.
   const cones=[];
   for(const [x,z] of [[211.7,140],[211.9,137],[211.8,132],[211,104],[211.1,101],[211.5,98],[205.2,-61],[205.2,-64],[208,-190]]){
@@ -264,10 +291,36 @@ export function createWorld(scene, night){
     shell.position.y=.193;stripe.position.y=.224;foot.position.y=.025;root.add(shell,stripe,foot);root.position.set(x,.08,z);scene.add(root);
     cones.push({root,vx:0,vz:0,tilt:0,hit:0});
   }
-  for(const {kind,matrices,colors,em,shadow} of groups.values()){
-    const mat=em?new T.MeshBasicMaterial({color:0xffffff}):new T.MeshStandardMaterial({color:0xffffff,roughness:.91,side:kind==='frond'?T.DoubleSide:T.FrontSide});
+  function coatSurface(mat,glass){
+    mat.customProgramCacheKey=()=>glass?'coast-glass-v1':'coast-stucco-v1';
+    mat.onBeforeCompile=shader=>{
+      shader.vertexShader='varying vec3 coastWorld;\n'+shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+        vec4 localSurface=vec4(transformed,1.);
+        #ifdef USE_INSTANCING
+          localSurface=instanceMatrix*localSurface;
+        #endif
+        coastWorld=(modelMatrix*localSurface).xyz;`);
+      shader.fragmentShader='varying vec3 coastWorld;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+        float detailFade=1.-smoothstep(21.,56.,distance(cameraPosition,coastWorld));
+        ${glass?`vec3 sight=normalize(cameraPosition-coastWorld);
+          float horizon=smoothstep(-.19,.56,sight.y);
+          float ribbon=exp(-abs(fract(coastWorld.y*.38+(coastWorld.x+coastWorld.z)*.018)-.73)*16.);
+          diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.12,.20,.29),.14+horizon*.19);
+          diffuseColor.rgb+=detailFade*ribbon*vec3(.12,.08,.11);`:
+          `vec3 cell=floor(coastWorld*28.);
+          float grit=fract(sin(dot(cell,vec3(1.97,69.4,51.67)))*4375.52);
+          float stain=.55+.45*sin(coastWorld.x*.51+coastWorld.z*.61)*sin(coastWorld.y*.92);
+          diffuseColor.rgb*=mix(1.,.965+(grit-.5)*.14+stain*.075,detailFade);`}`);
+    };
+  }
+  const surfaceMaterials=new Map();
+  for(const {kind,matrices,colors,em,shadow,tileX,tileZ,wide} of groups.values()){
+    const matKey=`${kind}/${em}`;let mat=surfaceMaterials.get(matKey);
+    if(!mat){mat=em?new T.MeshBasicMaterial({color:0xffffff}):new T.MeshStandardMaterial({color:0xffffff,roughness:.91,side:kind==='frond'?T.DoubleSide:T.FrontSide});
     if(kind==='asphalt')paintedRoad(mat);
-    const mesh=new T.InstancedMesh(geometry[kind],mat,matrices.length); matrices.forEach((m,i)=>{mesh.setMatrixAt(i,m);mesh.setColorAt(i,colors[i]);}); mesh.castShadow=shadow&&!em;mesh.receiveShadow=!em;scene.add(mesh);
+    if(kind==='facade'||kind==='glass'){if(kind==='glass'){mat.roughness=.36;mat.metalness=.23;}coatSurface(mat,kind==='glass');}
+    surfaceMaterials.set(matKey,mat);}
+    const mesh=new T.InstancedMesh(geometry[kind],mat,matrices.length); matrices.forEach((m,i)=>{mesh.setMatrixAt(i,m);mesh.setColorAt(i,colors[i]);}); mesh.castShadow=shadow&&!em;mesh.receiveShadow=!em;scene.add(mesh);if(!wide)segments.push({mesh,x:(tileX+.5)*112,z:(tileZ+.5)*112});
   }
   const collision=createCollision([...blocks,...props],{minX:XS[0]-13,maxX:257,minZ:ZS[0]-12,maxZ:ZS.at(-1)+12});
   function looseProps(dt,car,speed,heading){
@@ -287,5 +340,13 @@ export function createWorld(scene, night){
     }
     return touched;
   }
-  return { looseProps, collides:collision.circle, collidesVehicle:collision.vehicle, sky, sun, hemi, blocks, tide(time){ocean.material.uniforms.clock.value=time;wheel.rotation.z=time*.11;for(const g of gondolas)g.rotation.z=-wheel.rotation.z;} };
+  const dayTop=new T.Color('#57759e'),nightTop=new T.Color('#201a38'),dayLow=new T.Color('#ffd1b5'),nightLow=new T.Color('#775284'),nightFog=new T.Color('#625273'),dayFog=new T.Color('#dfb0b1'),gold=new T.Color('#ffcf9a'),blue=new T.Color('#abb7f0');
+  function daylight(seconds){const {light,hours}=cityClock(seconds,night),u=sky.material.uniforms;
+    u.top.value.copy(nightTop).lerp(dayTop,light);u.bottom.value.copy(nightLow).lerp(dayLow,light);u.night.value=1-light;u.sunColor.value.copy(blue).lerp(gold,light);
+    u.sunDir.value.set(Math.cos(hours*Math.PI/12)*.62,Math.max(.10,light*.66),-.85).normalize();
+    sun.intensity=.60+light*1.11;hemi.intensity=1.01+light*.65;sun.color.copy(blue).lerp(gold,light);hemi.color.copy(blue).lerp(dayLow,.34+light*.66);
+    scene.fog.color.copy(nightFog).lerp(dayFog,light);ocean.material.uniforms.night.value=1-light;glowMat.opacity=.23+(1-light)*.53;
+  }
+  function lod(x,z,close){const range=close?205:330,r2=range*range;for(const o of segments)o.mesh.visible=(o.x-x)**2+(o.z-z)**2<r2;}
+  return { lod, daylight, looseProps, collides:collision.circle, collidesVehicle:collision.vehicle, sky, sun, hemi, blocks, tide(time){ocean.material.uniforms.clock.value=time;wheel.rotation.z=time*.11;for(const g of gondolas)g.rotation.z=-wheel.rotation.z;} };
 }

@@ -9,6 +9,18 @@ const cy=()=>geom('cyl',()=>new T.CylinderGeometry(1,1,1,14));
 const cap=()=>geom('cap',()=>new T.CapsuleGeometry(.5,.7,3,8));
 function joint(p,x,y,z){const g=new T.Group();p.add(g);g.position.set(x,y,z);return g;}
 function ell(p,c,x,y,z,w,h,d){return mesh(p,sph(),c,x,y,z,w,h,d);}
+// Continuous garment silhouette with shoulder, waist and hem rings; normals are smoothed
+// around the body so the sleeves read as part of the jacket, not separate spheres.
+function garment(key,rings){return geom(key,()=>{
+  const vertices=[],indices=[],n=24;
+  rings.forEach(([y,w,front,back],i)=>{for(let j=0;j<n;j++){
+    const a=j/n*Math.PI*2,c=Math.cos(a),st=Math.sin(a);const fold=1+.016*Math.sin(a*7+i*.76);
+    vertices.push(st*w*fold,y,(c<0?front:back)*c*fold);
+    if(i){const p=(i-1)*n+j,q=(i-1)*n+(j+1)%n;indices.push(p,q,p+n,q,q+n,p+n);}
+  }});
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return g;
+});}
+function stitch(p,name,points,color,r=.003){const g=geom(name,()=>new T.TubeGeometry(new T.CatmullRomCurve3(points.map(q=>new T.Vector3(...q))),12,r,5,false));return mesh(p,g,color,0,0,0);}
 function portraitFace(head, skin, hair, style){
   const hiSphere=geom('portrait-sphere',()=>new T.SphereGeometry(1,28,18));
   const part=(p,c,x,y,z,w,h,d)=>mesh(p,hiSphere,c,x,y,z,w,h,d);
@@ -34,10 +46,10 @@ function portraitFace(head, skin, hair, style){
   const eyes=[];
   for(const s of [-1,1]){
     part(head,skin,s*.101,.038,.011,.022,.032,.019);part(head,shade,s*.114,.038,.004,.011,.021,.013);
-    part(head,skin,s*.047,.060,-.086,.029,.012,.015).rotation.y=-s*.26;
+    part(head,skin,s*.047,.062,-.084,.029,.011,.013).rotation.y=-s*.26;
     const eye=joint(head,s*.047,.065,-.091);eye.rotation.y=-s*.27;
-    part(eye,'#e8d1bd',0,0,0,.024,.009,.008);
-    const iris=part(eye,style==='nara'?'#627560':'#654531',0,0,-.006,.008,.008,.0034);
+    part(eye,'#e8d1bd',0,0,0,.024,.008,.0055);
+    const iris=part(eye,style==='nara'?'#627560':'#654531',0,0,-.0045,.0072,.0072,.0027);
     const pupil=part(iris,'#1a1625',0,0,-1,.49,.70,.43);part(pupil,'#ffedde',-.32,.39,-.87,.30,.24,.20);
     const liner=part(eye,hair,0,.010,-.002,.026,.0034,.009);liner.rotation.z=s*.07;
     const brow=part(head,hair,s*.047,.093,-.095,.028,.006,.010);brow.rotation.y=-s*.25;
@@ -89,9 +101,18 @@ function portraitFace(head, skin, hair, style){
 export function person({jacket='#ad4278',skin='#bf795f',pants='#382d49',hair='#312334',type=0,portrait=null}={}){
   const root=new T.Group(), rig=joint(root,0,0,0), hips=joint(rig,0,.94,0), chest=joint(hips,0,.04,0);
   ell(hips,pants,0,.002,.013,.181,.133,.116);
-  ell(chest,jacket,0,.265,.018,.218,.248,.116);ell(chest,jacket,0,.109,.014,.17,.14,.111);
-  ell(chest,type===0?'#352539':'#d9b6b2',0,.228,-.091,.102,.184,.047);
-  for(const side of [-1,1]){const trim=mesh(chest,box(),'#da789d',side*.085,.27,-.133,.014,.29,.010);trim.rotation.z=side*.19;}
+  const tapered=portrait!=='davi'&&type===0;
+  const torso=garment(tapered?'jacket-tailored':'jacket-straight',[[.016,.125,.093,.096],[.061,.162,.106,.105],[.13,tapered?.148:.167,.101,.111],[.23,tapered?.177:.185,.124,.121],[.34,.202,.124,.127],[.397,.188,.097,.109],[.445,.123,.080,.085],[.466,.053,.051,.060]]);
+  mesh(chest,torso,jacket,0,0,0);
+  ell(chest,type===0?'#3f2b40':'#d0b2a8',0,.316,-.114,.077,.117,.019);
+  for(const side of [-1,1]){
+    const trim=stitch(chest,`piping-${side}`,[[side*.079,.426,-.084],[side*.077,.379,-.110],[side*.057,.284,-.125],[side*.048,.151,-.108],[side*.051,.076,-.104]],type===0?'#db8aae':'#b3a6b5',.0045);
+    trim.castShadow=false;
+  }
+  const band=garment('jacket-hem',[[.028,.135,.098,.102],[.043,.161,.108,.111],[.060,.163,.110,.111],[.068,.160,.108,.110]]);mesh(chest,band,jacket,0,0,0);
+  const zip=mesh(chest,box(),'#ad899d',.013,.206,-.127,.006,.14,.009);zip.rotation.z=-.055;
+  mesh(chest,box(),'#e7ba9f',.009,.267,-.134,.015,.021,.010);
+
   ell(chest,skin,0,.486,0,.071,.084,.063);
   const head=joint(chest,0,.56,-.008);
   let face,tail;
@@ -114,12 +135,16 @@ export function person({jacket='#ad4278',skin='#bf795f',pants='#382d49',hair='#3
     if(portrait!=='davi')mesh(chest,geom('pendant-chain',()=>new T.TorusGeometry(.045,.0019,6,28)), '#d8a45f',0,.434,-.070,1,1.22,1).rotation.x=-.49;
   }
   const arms=[],legs=[];
-  ell(chest,jacket,0,.237,.021,.208,.215,.125);
   if(type===0){for(const s of [-1,1]){ell(chest,'#d56b96',s*.136,.25,.107,.015,.11,.015);}}
   for(const s of [-1,1]){
-    const arm=joint(chest,s*.192,.405,.005); arm.rotation.z=s*.105;
-    ell(arm,jacket,0,-.025,0,.072,.101,.078);mesh(arm,cap(),jacket,0,-.122,0,.14,.186,.139);
-    const elbow=joint(arm,0,-.234,0);mesh(elbow,cap(),jacket,0,-.085,0,.121,.144,.123);ell(elbow,skin,0,-.221,-.004,.042,.067,.043);arms.push({arm,elbow,s});
+    const arm=joint(chest,s*.173,.385,.005); arm.rotation.z=s*.105;
+    ell(arm,jacket,s*.007,-.032,0,.073,.103,.076);mesh(arm,cap(),jacket,0,-.119,0,.133,.208,.128);
+    const elbow=joint(arm,0,-.234,0);mesh(elbow,cap(),jacket,0,-.085,0,.121,.144,.123);
+    mesh(elbow,cy(),jacket,0,-.169,.001,.098,.052,.094);
+    const wrist=joint(elbow,0,-.185,.002);ell(wrist,skin,0,-.028,0,.031,.045,.024);
+    ell(wrist,skin,s*.023,-.037,-.011,.013,.022,.012).rotation.z=s*.32;
+    ell(wrist,skin,0,-.060,-.002,.025,.022,.022);
+    arms.push({arm,elbow,s,wrist});
     const thigh=joint(hips,s*.092,-.059,.012);mesh(thigh,cap(),pants,0,-.18,0,.174,.294,.174);
     const knee=joint(thigh,0,-.398,-.012);mesh(knee,cap(),pants,0,-.183,.012,.147,.279,.15);
     const ankle=joint(knee,0,-.382,0);ell(ankle,'#342c40',0,-.046,-.058,.078,.065,.134);ell(ankle,'#dcb0b8',0,-.080,-.059,.079,.020,.135);legs.push({thigh,knee,ankle});
@@ -132,10 +157,10 @@ export function person({jacket='#ad4278',skin='#bf795f',pants='#382d49',hair='#3
     soften(rig.position,'y',(-bob*.022+.013)*stride+Math.sin(step*.4)*.006);soften(rig.rotation,'x',-stride*(.035+.14*sprint));
     soften(hips.rotation,'y',wave*.086*stride);soften(chest.rotation,'y',-wave*.15*stride);soften(chest.rotation,'z',wave*.035*stride);soften(head.rotation,'y',wave*.025*stride);
     soften(tail.rotation,'x',wave*.17*stride);soften(tail.rotation,'z',Math.sin(step*.8)*.2*stride);
-    face?.(step/6,dt,acting);const emphasis=acting?.speaking?Math.sin(acting.beat*2.6)**2:0,seated=Boolean(acting?.seated),driver=Boolean(acting?.driver);
+    face?.(step/6,dt,acting);const emphasis=acting?.speaking?Math.sin((acting.beat??0)*2.6)**2:0,seated=Boolean(acting?.seated),driver=Boolean(acting?.driver);
     soften(rig.rotation,'z',seated?Math.sin(step*.41)*.012:0);
-    if(acting){soften(chest.rotation,'y',acting.look*.045+Math.sin(step*.22)*.023);soften(chest.rotation,'x',acting.lean||Math.sin(step*.18)*.014);}else soften(chest.rotation,'x',0);
-    arms.forEach(({arm,elbow,s},i)=>{const p=i===0?wave:-wave;soften(arm.rotation,'x',seated?(driver?.89:.26)+(driver?.04:.24)*emphasis:-p*(.37+.32*sprint)*stride-emphasis*(i===0?.24:.08));soften(arm.rotation,'z',s*(seated?(driver?-.18:.04):.09+.05*stride+emphasis*.07));soften(elbow.rotation,'x',seated?(driver?.66:.99)+emphasis*(driver?.07:.34):-.12-stride*(.16+.62*sprint)+p*.08*stride-emphasis*(i===0?.6:.2));});
+    if(acting){soften(chest.rotation,'y',(acting.look??0)*.045+Math.sin(step*.22)*.023);soften(chest.rotation,'x',acting.lean||Math.sin(step*.18)*.014);}else soften(chest.rotation,'x',0);
+    arms.forEach(({arm,elbow,s,wrist},i)=>{const p=i===0?wave:-wave;soften(arm.rotation,'x',seated?(driver?.89:.26)+(driver?.04:.24)*emphasis:-p*(.37+.32*sprint)*stride-emphasis*(i===0?.24:.08));soften(arm.rotation,'z',s*(seated?(driver?-.18:.04):.09+.05*stride+emphasis*.07));soften(elbow.rotation,'x',seated?(driver?.66:.99)+emphasis*(driver?.07:.34):-.12-stride*(.16+.62*sprint)+p*.08*stride-emphasis*(i===0?.6:.2));soften(wrist.rotation,'x',seated?-.13:-p*.09*stride+emphasis*.17);});
     legs.forEach(({thigh,knee,ankle},i)=>{const p=i===0?wave:-wave;const lift=Math.max(0,(i===0?Math.cos(step):-Math.cos(step)));soften(thigh.rotation,'x',seated?1.32:p*(.41+sprint*.18)*stride-lift*.17*stride);soften(knee.rotation,'x',seated?-1.30:lift*(.75+sprint*.46)*stride);soften(ankle.rotation,'x',(-lift*.31-p*.14)*stride);});
   }};
 }
