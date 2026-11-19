@@ -58,5 +58,10 @@ jobs:
       - name: Abrir o jogo publicado no Chromium
         env:
           PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+          PAGES_EXPECT_COMMIT: ${{ github.sha }}
           PAGES_SMOKE_ATTEMPTS: '15'
         run: npm test -- "$PAGES_URL"
+      - name: Testar atividades e controles no jogo publicado
+        env:
+          PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+        run: npm run test:game -- "${PAGES_URL%/}/jogar.html"
