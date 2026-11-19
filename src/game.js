@@ -1,46 +1,63 @@
 import * as T from 'three';
-import { createWorld, XS, ZS, districts, activities, race, delivery, random } from './world.js';
-import { person, coupe } from './actors.js';
+import { createWorld, XS, ZS, districts, random } from './world.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone } from 'three/addons/utils/SkeletonUtils.js';
+import { person, riggedPerson, coupe } from './actors.js';
 import { radio, sfx, speech } from './sound.js';
-const intro=[['Luzia','A cidade ainda cheira a gasolina quando chove.'],['Davi','Luz? Se você ainda estiver na orla, passa no quiosque. Guardei o carro.'],['Luzia','Você guardou o carro ou guardou o problema?'],['Davi','Traz as duas chaves. A menor abre o porta-luvas.']];
-const acts=[
- {name:'01 / As duas chaves',goal:'Encontre Davi no quiosque da orla.',target:{x:214,z:30}, lines:[['Davi','O banco da frente continua torto. Não fui eu.'],['Luzia','E o envelope no porta-luvas? Foi você?'],['Davi','A Nara deixou. Pega o carro e passa no Sereia. Ela vai saber se você abriu.']]},
- {name:'02 / Mesa do fundo',goal:'Dirija até o Café Sereia, em Miramar.',target:{x:-51,z:84},lines:[['Luzia','A mesa do fundo ainda balança.'],['Nara','Uma moeda no pé resolve. O resto, nem sempre.'],['Luzia','No envelope só tem uma foto do cais.'],['Nara','Olha pro reflexo. Não foi tirada de terra. O barco fica no Porto Violeta.']]},
- {name:'03 / O lado de fora',goal:'Procure o barco no Porto Violeta.',target:{x:244,z:-218},lines:[['Luzia','A tinta do nome ainda tá fresca. “Segunda Chance”.'],['Davi','Seu pai não era sutil com essas coisas.'],['Luzia','Tem três discos aqui. E uma fita com o seu nome.'],['Davi','Se ainda tocar, traz pro Lúmen. A gente escuta de porta fechada.']]},
- {name:'04 / A última faixa',goal:'Leve a fita ao Clube Lúmen, no Distrito Art Déco.',target:{x:-116,z:-102},lines:[['Davi','Esse lado da fita costumava estar em branco.'],['Luzia','Era onde ele gravava o mar. Espera.'],['Davi','Isso não é o mar. É o motor do teu carro.'],['Luzia','…Deixa tocar mais um pouco.']]}
-];
+import { campaign, intro, sideJobs, canStopInBay, directionTo, angularError } from './missions.js';
 const clamp=T.MathUtils.clamp;
 const smooth=(a,b,k,dt)=>T.MathUtils.lerp(a,b,1-Math.exp(-k*dt));
 const turn=(a,b,k,dt)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*(1-Math.exp(-k*dt));
 const dist=(x,z,p)=>Math.hypot(x-p.x,z-p.z);
 const MODE_LABEL=['CAMPANHA','MODO LIVRE','MODO LIVRE NOTURNO'];
-export function startGame(host,{mode,config,progress,icon,onPause,onSave}){
+export async function startGame(host,{mode,config,progress,icon,onPause,onSave}){
   const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'}); const scene=new T.Scene();
-  renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=mode===2 ? .94:1.04; renderer.shadowMap.type=T.PCFSoftShadowMap;
+  renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=mode===2 ? .94:1.04; renderer.shadowMap.type=T.PCFShadowMap;
   const cam=new T.PerspectiveCamera(63,1,.12,930);renderer.domElement.className='world-view';
-  host.innerHTML=`<div class="hud"><div class="hud-top"><div class="mission"><p><i></i> <span id="mode-label">${MODE_LABEL[mode]}</span></p><strong id="mission-name"></strong><small id="objective"></small></div><div class="hud-buttons"><button id="hud-radio" aria-label="Trocar rádio">${icon('radio')}</button><button id="hud-map" aria-label="Mapa">${icon('map')}</button><button id="hud-pause" aria-label="Pausa">${icon('pause')}</button></div></div><div class="toast" hidden></div><div class="interact" hidden></div><div class="caption" hidden><div><span id="speaker"></span><p id="line"></p></div><button class="secondary" id="advance">Avançar ${icon('chevron-right')}</button></div><div class="intro-cover" hidden><small>VICE CITY / LEONIDA</small><strong>Maré Alta</strong><span>CAPÍTULO 01 — AS DUAS CHAVES</span></div><div class="hud-bottom"><button class="minimap" aria-label="Abrir mapa"><canvas width="160" height="128"></canvas><span id="minidistrict">OCEAN BEACH</span></button><div class="drive" hidden><strong id="speed">000</strong><span>KM/H</span></div></div></div><div class="touch" aria-label="Controles de toque"><div class="joystick" id="stick" aria-label="Direção"><div></div></div><div class="touch-actions"><button id="touch-act" aria-label="Interagir">${icon('hand')}</button><button id="touch-run" aria-label="Correr ou frear">${icon('arrow-up')}</button></div></div><div class="map-panel" hidden><div class="map-header"><div><small>LEONIDA / 25°46′ N</small><h2>Vice City</h2></div><button class="secondary" id="close-map">Fechar ${icon('x')}</button></div><canvas id="bigmap" width="560" height="540" role="img" aria-label="Mapa da cidade com sua localização, missões e atividades"></canvas><div class="map-legend"><span>▲ VOCÊ</span><span>◆ OBJETIVO</span><span>● ATIVIDADES</span></div></div>`;
+  host.innerHTML=`<div class="hud"><div class="hud-top"><div class="mission"><p><i></i> <span id="mode-label">${MODE_LABEL[mode]}</span></p><strong id="mission-name"></strong><small id="objective"></small></div><div class="hud-buttons"><button id="hud-radio" aria-label="Abrir rádio">${icon('radio')}</button><button id="hud-jobs" title="Atividades opcionais (J)" aria-label="Atividades opcionais">✦</button><button id="hud-map" aria-label="Mapa">${icon('map')}</button><button id="hud-pause" aria-label="Pausa">${icon('pause')}</button></div></div><div class="toast" hidden></div><button type="button" class="interact" hidden></button><div class="caption" hidden><div><span id="speaker"></span><p id="line"></p></div><button class="secondary" id="advance">Avançar ${icon('chevron-right')}</button></div><div class="intro-cover" hidden><small>VICE CITY / LEONIDA</small><strong>Maré Alta</strong><span>OCEAN BEACH · 18H42</span></div><div class="hud-bottom"><button class="minimap" aria-label="Abrir mapa"><canvas width="160" height="128"></canvas><span id="minidistrict">OCEAN BEACH</span></button><div class="drive" hidden><strong id="speed">000</strong><span>KM/H</span></div></div></div><div class="touch" aria-label="Controles de toque"><div class="joystick" id="stick" aria-label="Direção"><div></div></div><div class="touch-actions"><button id="touch-act" aria-label="Interagir">${icon('hand')}</button><button id="touch-run" aria-label="Correr ou frear">${icon('arrow-up')}</button></div></div><div class="map-panel" hidden><div class="map-header"><div><small>LEONIDA / 25°46′ N</small><h2>Vice City</h2></div><button class="secondary" id="close-map">Fechar ${icon('x')}</button></div><canvas id="bigmap" width="560" height="540" role="img" aria-label="Mapa da cidade com sua localização, missões e atividades"></canvas><div class="map-legend"><span>▲ VOCÊ</span><span>◆ OBJETIVO</span><span>● ATIVIDADES</span></div></div><section class="city-panel" id="jobs-panel" aria-label="Atividades opcionais" hidden><header><div><small>VICE CITY / GUIA DA CIDADE</small><h2>Fora da história</h2></div><button class="secondary" id="close-jobs">Fechar</button></header><p class="city-status" id="city-status"></p><div class="jobs-list" id="jobs-list"></div><button class="secondary" id="cancel-job" hidden>Abandonar atividade</button></section><section class="city-panel" id="radio-panel" hidden aria-label="Rádio da cidade"><header><div><small>FREQUÊNCIAS / VICE CITY</small><h2>Rádio</h2></div><button class="secondary" id="close-radio">Fechar</button></header><p class="city-status" id="now-playing"></p><div class="jobs-list" id="stations"></div><button class="secondary" id="skip-radio">Próxima faixa</button></section><section class="city-panel puzzle-panel" id="puzzle-panel" aria-label="Painel de desafio" hidden><header><div><small>VICE CITY / DESAFIO</small><h2 id="puzzle-title"></h2></div><button class="secondary" id="close-puzzle">Sair</button></header><p id="puzzle-clue"></p><div class="puzzle-keys" id="puzzle-keys"></div><p role="status" id="puzzle-feedback"></p><button class="secondary" id="replay-puzzle">Repetir sequência</button></section>`;
   host.prepend(renderer.domElement);const $=s=>host.querySelector(s); const cv=renderer.domElement;
-  const world=createWorld(scene,mode===2), player=person();scene.add(player.root);
-  let stage=mode===0?clamp(Number(progress?.stage)||0,0,acts.length):acts.length;
-  const spawn=mode===2?{x:229,z:-205}:mode===0&&stage>0?(acts[stage-1]?.target||{x:207,z:74}):{x:207.2,z:75};
+  const gltf=await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/luzia.glb`).catch(error=>{console.warn('Modelo de Luzia indisponível',error);return null;});
+  const asset=gltf?{...gltf,clone}:null;
+  const world=createWorld(scene,mode===2), player=asset?riggedPerson(asset):person();scene.add(player.root);
+  let stage=mode===0?clamp(Number(progress?.stage)||0,0,campaign.length):campaign.length;
+  let storyStep=clamp(Number(progress?.step)||0,0,(campaign[stage]?.steps.length||1)-1);
+  const campaignCheckpoint=()=>campaign[stage]?.steps[storyStep-1]||campaign[stage-1]?.steps.at(-1);
+  const cp=campaignCheckpoint();
+  const spawn=mode===2?{x:232,z:-205}:mode===0&&cp?cp:{x:211.3,z:74};
+  const progressState={...progress,side:{...progress?.side}};
+  function saveProgress(){if(mode===0){progressState.stage=stage;progressState.step=storyStep;}onSave(progressState);}
   player.root.position.set(spawn.x,.12,spawn.z);
   const cars=[];const palette=['#cc4b71','#91b2bb','#c08aba','#527a92','#b99871','#be6f89','#6a9e97'];
-  function addCar(x,z,rot,index,patrol=null){const c=coupe(palette[index%palette.length],index%3);c.root.position.set(x,.08,z);c.root.rotation.y=rot;scene.add(c.root);c.patrol=patrol;c.rate=0;cars.push(c);return c;}
-  addCar(mode===2?208.1:stage>0&&mode===0?clamp(spawn.x-6,-330,219):200.4,mode===2?-201:stage>0&&mode===0?spawn.z+1:72,0,0);
+  function addCar(x,z,rot,index,patrol=null){const c=coupe(index===0?'#e7b79f':palette[index%palette.length],index===0?3:index%3);c.root.position.set(x,.08,z);c.root.rotation.y=rot;scene.add(c.root);c.patrol=patrol;c.rate=0;cars.push(c);return c;}
+  addCar(mode===2?208.1:mode===0&&campaignCheckpoint()?clamp(spawn.x-5.2,XS[0]+4,219):208.7,mode===2?-201:mode===0&&campaignCheckpoint()?spawn.z+7:68.5,0,0);
   for(let i=0;i<16;i++){const x=XS[(i*3+1)%XS.length],z=ZS[(i*7+4)%ZS.length];addCar(x+5.65,z+15,0,i+1);}
   function loop(x,z,w,d){return [{x:x-3.1,z:z-3.1},{x:x+w-3.1,z:z-3.1},{x:x+w-3.1,z:z+d-3.1},{x:x-3.1,z:z+d-3.1}];}
-  for(let i=0;i<9;i++){const p=loop(XS[i%7],ZS[(i*2+1)%8],66*(i%2+1),66); const c=addCar(p[0].x,p[0].z,-Math.PI/2,i+2,p);c.index=1;c.rate=7.4+i*.35;}
+  for(let i=0;i<13;i++){const p=loop(XS[i%(XS.length-2)],ZS[(i*2+1)%(ZS.length-2)],66*(i%2+1),66); const c=addCar(p[0].x,p[0].z,-Math.PI/2,i+2,p);c.index=1;c.rate=7.4+i*.35;}
   const npc=[['#566e89','#ae715e','#493752'],['#89a29b','#df9d81','#4b4962'],['#b7769c','#94635f','#655071'],['#a57c63','#c99373','#4c4d72']];
-  function npcAt(x,z,i){const [jacket,skin,pants]=npc[i%npc.length],p=person({jacket,skin,pants,type:i%2});p.root.position.set(x,.125,z);p.root.rotation.y=.4;scene.add(p.root);return p;}
+  function npcAt(x,z,i){const [jacket,skin,pants]=npc[i%npc.length],p=asset&&i%5===1?riggedPerson(asset,{accent:i===1?'#a5e3c3':'#fbc1ac'}):person({jacket,skin,pants,type:i%2});p.root.position.set(x,.125,z);p.root.rotation.y=.4;scene.add(p.root);return p;}
   const pierTraffic=addCar(207.4,145,0,6,[{x:207.4,z:248},{x:207.4,z:-190},{x:200.7,z:-190},{x:200.7,z:248}]);pierTraffic.index=1;pierTraffic.rate=11.2;
-  const davi=npcAt(215.3,30.4,0);davi.root.rotation.y=Math.PI*.75;npcAt(-50.1,85,1);npcAt(-116,-100.6,2);
+  const davi=npcAt(215.3,30.4,0);davi.root.rotation.y=Math.PI*.75;const nara=npcAt(-50.1,85,1);nara.root.rotation.y=Math.PI*.66;npcAt(-116,-100.6,2);
   const people=[];
-  for(let i=0;i<23;i++){let x=i<9?215.5:XS[(i*5+3)%8]+10.1,z=i<9?-242+i*61:ZS[(i*3+4)%9]+13+random()*28; const p=npcAt(x,z,i);people.push({p,x,z,w:7+random()*15,t:random()*20});}
+  for(let i=0;i<48;i++){
+    let x=i<21?213.4+i%4*2.6:XS[(i*5+3)%8]+9.25,z=i<21?-259+i*27:ZS[(i*3+4)%9]+13+random()*28;
+    const p=npcAt(x,z,i+3);people.push({p,x,z,w:i%6===0?0:6+random()*14,t:random()*20});
+  }
+  for(const [x,z] of [[213.6,55],[219.9,60],[218.2,80],[215.4,91],[217.1,102],[221.3,54],[219.8,45],[235.1,-229]]){
+    const p=npcAt(x,z,people.length+3);people.push({p,x,z,w:Math.random()*2.6,t:random()*20});
+  }
   const markerMat=new T.MeshBasicMaterial({color:'#ffd393',transparent:true,opacity:.89,side:T.DoubleSide});const marker=new T.Mesh(new T.RingGeometry(1.65,1.84,30),markerMat);marker.rotation.x=-Math.PI/2;scene.add(marker);
   const pointer=new T.Mesh(new T.OctahedronGeometry(.48,0),new T.MeshBasicMaterial({color:'#ffd393'}));scene.add(pointer);
-  const points=activities.map(a=>{const m=new T.Mesh(new T.RingGeometry(1.53,1.69,24),new T.MeshBasicMaterial({color:'#a7ebd6',side:T.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(a.x,.22,a.z);scene.add(m);return m;});
+  const points=sideJobs.map(a=>{const m=new T.Mesh(new T.RingGeometry(1.53,1.69,24),new T.MeshBasicMaterial({color:'#a7ebd6',side:T.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(a.x,.22,a.z);scene.add(m);return m;});
   let car=null, speed=0, yaw=0, viewYaw=0, elevation=.4, freeCamera=0, elapsed=0, walk=0, step=0, credit=0, timer=0, lastCollision=-100;
-  let paused=false,mapOpen=false,cut=null,activeActivity=null,toasts=0,alive=true,raf,drag=null;
+  let paused=false,mapOpen=false,guideOpen=false,radioOpen=false,puzzle=null,cut=null,activeActivity=null,tracked=null,toasts=0,alive=true,raf,drag=null;
+  credit=Object.entries(progressState.side).reduce((sum,[id,count])=>sum+(count>0?(sideJobs.find(a=>a.id===id)?.reward||0):0),0);
+  const courseMat=new T.MeshBasicMaterial({color:'#ffd59e',transparent:true,opacity:.83});
+  const courseGate=new T.Group(), gateGeo=new T.BoxGeometry(), gatePiece=(x,y,z,w,h,d)=>{const m=new T.Mesh(gateGeo,courseMat);m.position.set(x,y,z);m.scale.set(w,h,d);courseGate.add(m);};
+  gatePiece(-3.6,1.2,0,.13,2.4,.14);gatePiece(3.6,1.2,0,.13,2.4,.14);gatePiece(0,2.4,0,7.2,.12,.15);
+  const vinyl=new T.Group(),record=new T.Mesh(new T.CylinderGeometry(.31,.31,.036,26),new T.MeshStandardMaterial({color:'#392444',roughness:.37}));
+  vinyl.add(record);const recordLabel=new T.Mesh(new T.CylinderGeometry(.104,.104,.041,20),new T.MeshBasicMaterial({color:'#f29fbc'}));vinyl.add(recordLabel);scene.add(vinyl);
+  const bay=new T.Group();for(const k of [-1,1]){const rail=new T.Mesh(gateGeo,courseMat);rail.position.set(k*1.65,.043,0);rail.scale.set(.09,.015,6.55);bay.add(rail);const end=new T.Mesh(gateGeo,courseMat);end.position.set(0,.043,k*3.25);end.scale.set(3.35,.015,.10);bay.add(end);}scene.add(bay,courseGate);
+
   const contacts=new T.Group();scene.add(contacts);
   const shadowTexture=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const ctx=c.getContext('2d');const g=ctx.createRadialGradient(16,16,2,16,16,16);g.addColorStop(0,'rgba(33,15,51,.52)');g.addColorStop(.54,'rgba(33,15,51,.32)');g.addColorStop(1,'rgba(33,15,51,0)');ctx.fillStyle=g;ctx.fillRect(0,0,32,32);return new T.CanvasTexture(c);})();
   const shadowGeo=new T.PlaneGeometry(),shadowMat=new T.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1});
@@ -49,55 +66,124 @@ export function startGame(host,{mode,config,progress,icon,onPause,onSave}){
   let quality=config.quality;const keys=new Set();const touch={x:0,y:0,run:false};
   const events=[];function bind(el,name,fn,opts){el.addEventListener(name,fn,opts);events.push(()=>el.removeEventListener(name,fn,opts));}
   let target=null,context=null;
+  const currentStep=()=>mode===0?campaign[stage]?.steps[storyStep]:null;
   function refresh(){
-    const a=mode===0?acts[stage]:null;
-    $('#mission-name').textContent=activeActivity?.name||a?.name||(mode===0?'Fim do capítulo':'Explore Vice City');
-    $('#objective').textContent=activeActivity?(activeActivity.type==='race'?`Passe pelos pontos na ordem · ${activeActivity.i+1}/${race.length}`:`Leve os pedidos aos pontos marcados · ${activeActivity.i+1}/${delivery.length}`):a?.goal||(mode===0?'Continue explorando a cidade.':'Descubra a cidade e encontre atividades no mapa.');
-    target=activeActivity?activeActivity.route[activeActivity.i]:a?.target||null;marker.visible=pointer.visible=Boolean(target);
-    if(target){marker.position.set(target.x,.24,target.z);pointer.position.set(target.x,2.65,target.z);}
+    const a=mode===0?campaign[stage]:null, step=currentStep(), job=activeActivity;
+    $('#mission-name').textContent=job?.name||a?.name||(mode===0?'Fim do capítulo':'Explore Vice City');
+    $('#objective').textContent=tracked&&!job?`Destino opcional: ${tracked.name}. Siga o marcador verde.`:job?(job.kind==='photo'?'Gire a câmera em direção à roda-gigante e use Interagir.':`${job.desc} · ${job.i+1}/${job.route?.length||1}`):step?.goal||(mode===0?'O capítulo acabou. As atividades continuam abertas.':'Abra o guia ✦ (J) para encontrar atividades opcionais.');
+    target=job?.route?.[job.i] || tracked || step || null;
+    marker.visible=pointer.visible=Boolean(target);
+    const color=job||tracked?'#75ebcd':'#ffd393';markerMat.color.set(color);pointer.material.color.set(color);courseMat.color.set(color);
+    const park=(job?.kind==='park'||!job&&!tracked&&step?.kind==='park');
+    vinyl.visible=Boolean(job?.kind==='hunt'&&target);if(vinyl.visible)vinyl.position.set(target.x,.64,target.z);
+    courseGate.visible=Boolean(job?.kind==='drive'&&target);
+    bay.visible=Boolean(park&&target);
+    if(target){marker.position.set(target.x,.24,target.z);pointer.position.set(target.x,2.65,target.z);bay.position.set(target.x,0,target.z);courseGate.position.set(target.x,.03,target.z);if(courseGate.visible){const prev=job.route[job.i-1]||job;courseGate.rotation.y=directionTo(target,prev);}}
+  }
+  function nextStory(){
+    if(++storyStep>=campaign[stage].steps.length){stage++;storyStep=0;toast(stage===campaign.length?'Capítulo concluído':'Missão concluída',stage===campaign.length?'A cidade continua aberta.':campaign[stage].name);sfx('complete');}
+    else sfx('select');
+    progressState.introSeen=true;saveProgress();refresh();
+  }
+  function endJob(){
+    const job=activeActivity;
+    if(!progressState.side[job.id])credit+=job.reward;
+    progressState.side[job.id]=(progressState.side[job.id]||0)+1;saveProgress();
+    activeActivity=null;tracked=null;refresh();sfx('complete');toast('Atividade concluída',`${job.name} · carteira $${credit}`);
+  }
+  function nextJob(){if(++activeActivity.i>=activeActivity.route.length)endJob();else{refresh();sfx('select');}}
+  function guide(open){
+    if(cut||puzzle||paused||radioOpen||mapOpen)return;
+    guideOpen=open;clearInput();$('#jobs-panel').hidden=!open;host.classList.toggle('overlay-open',open);
+    if(!open){cv.focus();return;}
+    $('#city-status').textContent=`${Object.values(progressState.side).filter(Boolean).length}/${sideJobs.length} concluídas · carteira $${credit} · marque um destino para ir até lá`;
+    $('#cancel-job').hidden=!activeActivity;
+    $('#jobs-list').innerHTML=sideJobs.map(a=>`<article><i>${a.glyph}</i><div><strong>${a.name}</strong><small>${a.area} / ${progressState.side[a.id]?'CONCLUÍDA':`$${a.reward}`}</small><p>${a.desc}</p></div><button class="secondary" data-track="${a.id}" ${activeActivity?'disabled':''}>${tracked?.id===a.id?'Desmarcar':'Marcar'}</button></article>`).join('');
+    $('#close-jobs').focus();
+  }
+  function openPuzzle(def,done){
+    clearInput();puzzle={def,done,i:0,tick:0,locked:false};host.classList.add('overlay-open');$('#puzzle-panel').hidden=false;
+    $('#puzzle-title').textContent=def.title;$('#puzzle-clue').textContent=def.clue;
+    $('#puzzle-keys').innerHTML=def.symbols.map((k,i)=>`<button class="secondary" data-puzzle="${i}">${k}</button>`).join('');
+    $('#replay-puzzle').hidden=!def.preview;$('#puzzle-feedback').textContent=`0 / ${def.order.length}`;
+    if(def.preview)showSequence();$('#close-puzzle').focus();
+  }
+  function showSequence(){
+    if(!puzzle)return;const state=puzzle,gen=++state.tick;state.i=0;state.locked=true;
+    const keys=[...$('#puzzle-keys').children];keys.forEach(k=>{k.disabled=true;k.classList.remove('lit');});$('#puzzle-feedback').textContent='Observe a sequência…';
+    state.def.order.forEach((num,i)=>{setTimeout(()=>{if(puzzle!==state||state.tick!==gen)return;keys[num].classList.add('lit');sfx('select');},350+i*615);setTimeout(()=>{if(puzzle===state&&state.tick===gen)keys[num].classList.remove('lit');},730+i*615);});
+    setTimeout(()=>{if(puzzle!==state||state.tick!==gen)return;state.locked=false;keys.forEach(k=>k.disabled=false);$('#puzzle-feedback').textContent='Sua vez.';},400+state.def.order.length*615);
+  }
+  function closePuzzle(cancel=false){if(!puzzle)return;const {done}=puzzle;puzzle=null;$('#puzzle-panel').hidden=true;host.classList.remove('overlay-open');cv.focus();if(!cancel)done();}
+  function puzzlePress(i){if(!puzzle||puzzle.locked)return;const correct=puzzle.def.order[puzzle.i];
+    if(i!==correct){puzzle.i=0;$('#puzzle-feedback').textContent='Não foi essa. Tente de novo desde o começo.';sfx('bump');return;}
+    sfx('select');if(++puzzle.i===puzzle.def.order.length){closePuzzle();return;}$('#puzzle-feedback').textContent=`${puzzle.i} / ${puzzle.def.order.length}`;
   }
   function toast(title,text){const el=$('.toast');el.replaceChildren(Object.assign(document.createElement('strong'),{textContent:title}),Object.assign(document.createElement('span'),{textContent:text}));el.hidden=false;toasts=elapsed+4.1;}
   function story(lines,done,introMode=false){cut={lines,done,i:0,introMode};$('.caption').hidden=false;$('.intro-cover').hidden=!introMode;host.classList.add('cinematic');dialogue();}
   function dialogue(){if(!cut)return;const [speaker,line]=cut.lines[cut.i];$('#speaker').textContent=speaker;$('#line').textContent=line;speech.say(line,speaker);$('#advance').innerHTML=`${cut.i===cut.lines.length-1?'Concluir':'Avançar'} ${icon('chevron-right')}`;}
   function advance(){if(!cut)return;if(++cut.i<cut.lines.length){dialogue();return;}const {done}=cut;cut=null;speech.stop();$('.caption').hidden=true;$('.intro-cover').hidden=true;host.classList.remove('cinematic');done?.();}
   function nearest(){
-    const p=car?.root.position||player.root.position;
-    if(mode===0&&acts[stage]&&dist(p.x,p.z,acts[stage].target)<(stage===1?7:4.8)&&!activeActivity)return{type:'story',text:stage===0?'Falar com Davi':stage===1?'Conversar com Nara':stage===2?'Examinar o barco':'Ouvir a fita'};
-    if(car)return{type:'exit',text:Math.abs(speed)>2.8?'Pare para sair':'Sair do carro'};
-    if(!activeActivity)for(const a of activities)if(dist(p.x,p.z,a)<4)return{type:'activity',text:a.name,a};
-    let closest=3.75, chosen;for(const c of cars){if(c.patrol)continue;const d=dist(p.x,p.z,c.root.position);if(d<closest){closest=d;chosen=c;}}if(chosen)return{type:'car',car:chosen,text:'Entrar no carro'};return null;
+    const p=car?.root.position||player.root.position, step=currentStep();
+    if(!activeActivity&&tracked&&dist(p.x,p.z,tracked)<4.7&&(!car||['drive','park'].includes(tracked.kind)))return {type:'activity',text:`✦ ${tracked.name}`,a:tracked};
+    if(!activeActivity&&step&&step.kind!=='park'&&!car&&dist(p.x,p.z,step)<4.5)return {type:'story',text:step.label,step};
+    if(activeActivity && !car && ['hunt','stops','photo'].includes(activeActivity.kind)&&dist(p.x,p.z,target)<4.9)return {type:'job-stop',text:target.label};
+    if(!activeActivity)for(const a of sideJobs){if(car&&!['drive','park'].includes(a.kind))continue;if(dist(p.x,p.z,a)<4.7)return {type:'activity',text:`✦ ${a.name}`,a};}
+    if(car)return {type:'exit',text:Math.abs(speed)>2.8?'Pare para sair':'Sair do carro'};
+    let closest=3.8, chosen;for(const c of cars){if(c.patrol)continue;const d=dist(p.x,p.z,c.root.position);if(d<closest){closest=d;chosen=c;}}if(chosen)return {type:'car',car:chosen,text:'Entrar no carro'};return null;
   }
   function interact(){
-    if(cut){advance();return;}if(paused||mapOpen)return;const c=nearest();if(!c)return;
+    if(cut){advance();return;}if(paused||mapOpen||guideOpen||radioOpen||puzzle)return;const c=nearest();if(!c)return;
     if(c.type==='story'){
-      if(car&&Math.abs(speed)>2.8)return; speed=0;
-      story(acts[stage].lines,()=>{stage++;onSave({stage,introSeen:true});refresh();sfx('complete');toast(stage===acts.length?'Capítulo concluído':'Missão concluída',stage===acts.length?'O som da fita continua na sua cabeça.':acts[stage].name);});
+      tracked=null;refresh();player.interact?.();
+      if(c.step.kind==='puzzle')openPuzzle(c.step.puzzle,nextStory);
+      else if(c.step.lines)story(c.step.lines,nextStory);
+      else nextStory();
     }else if(c.type==='car'){car=c.car;speed=0;yaw=car.root.rotation.y;viewYaw=yaw;freeCamera=0;player.root.visible=false;sfx('door');toast(radio.info().station,radio.info().title);}
-    else if(c.type==='exit'&&Math.abs(speed)<=2.8){const p=car.root.position; const x=Math.cos(yaw)*1.7,z=-Math.sin(yaw)*1.7;player.root.position.set(p.x+(world.collides(p.x+x,p.z+z,.35)?-x:x),.12,p.z+(world.collides(p.x+x,p.z+z,.35)?-z:z));player.root.rotation.y=yaw;car=null;speed=0;sfx('door');}
+    else if(c.type==='exit'&&Math.abs(speed)<=2.8){const p=car.root.position; const x=Math.cos(yaw)*1.7,z=-Math.sin(yaw)*1.7;const side=world.collides(p.x+x,p.z+z,.35)?-1:1;player.root.position.set(p.x+side*x,.12,p.z+side*z);player.root.rotation.y=yaw;car=null;speed=0;sfx('door');}
     else if(c.type==='activity'){
-      if(c.a.type==='lookout'){toast('Mirante da marina','Uma boa vista também é um destino.');sfx('select');return;}
-      activeActivity={...c.a,i:0,route:c.a.type==='race'?race:delivery};timer=c.a.type==='race'?62:160;refresh();toast(c.a.name,c.a.type==='race'?'Entre em um carro e siga os pontos.':'Você pode fazer a rota a pé ou de carro.');sfx('select');
+      if(['drive','park'].includes(c.a.kind)&&(!car||Math.abs(speed)>2.8)){toast(c.a.name,'Pare no ponto de partida dentro de um carro.');return;}
+      activeActivity={...c.a,i:0};tracked=null;timer=c.a.time||0;refresh();
+      if(c.a.puzzle)openPuzzle(c.a.puzzle,endJob);else{toast(c.a.name,c.a.desc);sfx('select');}
+    }else if(c.type==='job-stop'){
+      if(activeActivity.kind==='photo'){
+        const angle=directionTo(player.root.position,{x:247,z:-258});
+        if(angularError(viewYaw,angle)>.26){toast('Fora de quadro','Arraste a cena até a roda-gigante ficar no centro.');return;}
+        const file=document.createElement('a');renderer.render(scene,cam);file.href=renderer.domElement.toDataURL('image/jpeg',.86);file.download='postal-porto-violeta.jpg';file.click();
+      }
+      sfx('select');nextJob();
     }
   }
   function drawings(can,big){
     const ctx=can.getContext('2d'),w=can.width,h=can.height,p=car?.root.position||player.root.position;
-    ctx.fillStyle='#25203e';ctx.fillRect(0,0,w,h);const sc=big?Math.min(w/650,h/651):1.05;const fx=x=>w/2+(x-(big?-45:p.x))*sc,fz=z=>h/2+(z-(big?-1:p.z))*sc;
+    ctx.fillStyle='#25203e';ctx.fillRect(0,0,w,h);const sc=big?Math.min(w/765,h/731):1.05;const fx=x=>w/2+(x-(big?-101:p.x))*sc,fz=z=>h/2+(z-(big?30:p.z))*sc;
     const rect=(x,z,ww,hh,c)=>{ctx.fillStyle=c;ctx.fillRect(fx(x),fz(z),ww*sc,hh*sc);};
-    rect(253,-320,250,642,'#34456a');rect(213,-314,40,625,'#735368');rect(-333,-314,546,625,'#332641');
+    rect(253,-320,250,701,'#34456a');rect(213,-314,40,687,'#735368');rect(XS[0]-12,-314,225-XS[0],687,'#332641');
     for(const b of world.blocks){if(!big&&(Math.abs(b.x-p.x)>92||Math.abs(b.z-p.z)>80))continue;rect(b.x-b.w/2,b.z-b.d/2,b.w,b.d,'#4c3d61');}
-    for(const x of XS)rect(x-6,-302,12,612,'#786884');for(const z of ZS)rect(-330,z-6,543,12,'#786884');
+    for(const x of XS)rect(x-6,-306,12,677,'#786884');for(const z of ZS)rect(XS[0]-7,z-6,220-XS[0],12,'#786884');
     if(big){ctx.font='600 11px Inter';ctx.textAlign='center';for(const d of districts){ctx.strokeStyle='#2a203c';ctx.lineWidth=3;ctx.strokeText(d.name,fx(d.x),fz(d.z));ctx.fillStyle='#e6d3e4';ctx.fillText(d.name,fx(d.x),fz(d.z));}}
-    for(const a of activities){ctx.fillStyle='#a7ebd6';ctx.beginPath();ctx.arc(fx(a.x),fz(a.z),big?4:3,0,Math.PI*2);ctx.fill();}
+    for(const a of sideJobs){ctx.fillStyle=progressState.side[a.id]?'#b2afca':'#a7ebd6';ctx.beginPath();ctx.arc(fx(a.x),fz(a.z),big?5:3,0,Math.PI*2);ctx.fill();if(big){ctx.font='700 8px Inter';ctx.textAlign='center';ctx.fillStyle='#25163e';ctx.fillText(a.glyph,fx(a.x),fz(a.z)+3);}}
     if(target){const x=clamp(fx(target.x),8,w-8),z=clamp(fz(target.z),8,h-8);ctx.fillStyle='#ffd18f';ctx.save();ctx.translate(x,z);ctx.rotate(Math.PI/4);ctx.fillRect(-4,-4,8,8);ctx.restore();}
     ctx.save();ctx.translate(fx(p.x),fz(p.z));ctx.rotate(-(car?yaw:player.root.rotation.y));ctx.fillStyle='#fff0ee';ctx.strokeStyle='#472644';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(5,5);ctx.lineTo(0,3);ctx.lineTo(-5,5);ctx.closePath();ctx.stroke();ctx.fill();ctx.restore();
   }
-  function map(open){if(paused)return;mapOpen=open;keys.clear();touch.x=touch.y=0;touch.run=false;$('.map-panel').hidden=!mapOpen;host.classList.toggle('map-open',mapOpen);if(open){drawings($('#bigmap'),true);$('#close-map').focus();}else cv.focus();}
+  function clearInput(){keys.clear();touch.run=false;resetStick();}
+  function map(open){if(paused||guideOpen||puzzle)return;mapOpen=open;keys.clear();touch.x=touch.y=0;touch.run=false;$('.map-panel').hidden=!mapOpen;host.classList.toggle('map-open',mapOpen);if(open){drawings($('#bigmap'),true);$('#close-map').focus();}else cv.focus();}
+  function radioInfo(){const {station,title,artist,channel}=radio.info();$('#now-playing').textContent=title?`${station} · ${title} — ${artist}`:station;$('#skip-radio').hidden=!title;$('#stations').innerHTML=radio.stations.map(({name,tag,tracks},i)=>`<article><i>♫</i><div><strong>${name}</strong><small>${tag} ${tracks.length?`· ${tracks.length} FAIXAS`:''}</small></div><button class="secondary" data-radio="${i}" aria-pressed="${i===channel}">${i===channel?'No ar':'Sintonizar'}</button></article>`).join('');}
+  function radioPanel(open){if(guideOpen||mapOpen||puzzle||paused)return;radioOpen=open;clearInput();$('#radio-panel').hidden=!open;host.classList.toggle('overlay-open',open);if(open){radioInfo();$('#close-radio').focus();}else cv.focus();}
   function nextRadio(){const track=radio.change();toast(track.station,track.title);}
-  bind($('#hud-pause'),'click',()=>{if(mapOpen)map(false);onPause();});bind($('#hud-radio'),'click',nextRadio);bind($('#hud-map'),'click',()=>map(!mapOpen));bind($('.minimap'),'click',()=>map(!mapOpen));bind($('#close-map'),'click',()=>map(false));bind($('#advance'),'click',advance);bind($('.interact'),'click',interact);
+  bind($('#hud-pause'),'click',()=>{if(mapOpen)map(false);onPause();});
+  bind($('#hud-jobs'),'click',()=>guide(!guideOpen));bind($('#close-jobs'),'click',()=>guide(false));
+  bind($('#jobs-list'),'click',e=>{const id=e.target.closest('[data-track]')?.dataset.track;if(!id||activeActivity)return;tracked=tracked?.id===id?null:sideJobs.find(a=>a.id===id);guide(false);refresh();if(tracked)toast(tracked.name,'Siga o marcador verde.');});
+  bind($('#cancel-job'),'click',()=>{activeActivity=null;tracked=null;refresh();guide(false);toast('Atividade abandonada','Você pode voltar e tentar novamente.');});
+  bind($('#close-puzzle'),'click',()=>{const side=activeActivity?.kind==='puzzle';closePuzzle(true);if(side){activeActivity=null;refresh();}});bind($('#replay-puzzle'),'click',showSequence);
+  bind($('#puzzle-keys'),'click',e=>{const i=e.target.closest('[data-puzzle]')?.dataset.puzzle;if(i!==undefined)puzzlePress(+i);});bind($('#hud-radio'),'click',()=>radioPanel(!radioOpen));bind($('#close-radio'),'click',()=>radioPanel(false));bind($('#skip-radio'),'click',()=>{radio.skip();radioInfo();});bind($('#stations'),'click',e=>{const i=e.target.closest('[data-radio]')?.dataset.radio;if(i!==undefined){radio.choose(+i);radioInfo();}});bind($('#hud-map'),'click',()=>map(!mapOpen));bind($('.minimap'),'click',()=>map(!mapOpen));bind($('#close-map'),'click',()=>map(false));bind($('#advance'),'click',advance);bind($('.interact'),'click',interact);
   bind(window,'keydown',e=>{
     if(paused)return;
-    if(['ArrowUp','ArrowRight','ArrowLeft','ArrowDown','Space','KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','KeyE','KeyM','KeyR','Escape'].includes(e.code))e.preventDefault();
-    if(!e.repeat){if(e.code==='Escape'){if(mapOpen)map(false);else onPause();return;}if(e.code==='KeyM'){map(!mapOpen);return;}if(e.code==='KeyR'){nextRadio();return;}if(e.code==='KeyE'){interact();return;}}
+    if(radioOpen){if(e.code==='Escape'||e.code==='KeyR'){e.preventDefault();radioPanel(false);}return;}
+    if(puzzle){if(e.code==='Escape'){e.preventDefault();$('#close-puzzle').click();}return;}
+    if(guideOpen){if(e.code==='Escape'||e.code==='KeyJ'){e.preventDefault();guide(false);}return;}
+    if(['ArrowUp','ArrowRight','ArrowLeft','ArrowDown','Space','KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','KeyE','KeyM','KeyR','KeyJ','Escape'].includes(e.code))e.preventDefault();
+    if(!e.repeat){if(e.code==='Escape'){if(mapOpen)map(false);else onPause();return;}if(e.code==='KeyM'){map(!mapOpen);return;}if(e.code==='KeyJ'){if(mapOpen)map(false);guide(true);return;}if(e.code==='KeyR'){nextRadio();return;}if(e.code==='KeyE'){interact();return;}}
     keys.add(e.code);
   });bind(window,'keyup',e=>keys.delete(e.code));bind(window,'blur',()=>{keys.clear();touch.x=touch.y=0;touch.run=false;});
   const stick=$('#stick'), knob=stick.firstElementChild;
@@ -114,19 +200,19 @@ export function startGame(host,{mode,config,progress,icon,onPause,onSave}){
   function axis(plus,minus,t){ return clamp((plus.some(k=>keys.has(k))?1:0)-(minus.some(k=>keys.has(k))?1:0)+t,-1,1); }
   const look=new T.Vector3();const desired=new T.Vector3();const prevLight=new T.Vector3(-1000,0,0);let last=performance.now(),mapTick=0;
   function camera(dt,snap=false){
-    const p=(car?.root||player.root).position;const cinematic=Boolean(cut?.introMode), heading=cinematic?-.40+Math.sin(elapsed*.25)*.25:viewYaw;
+    const p=(car?.root||player.root).position;const cinematic=Boolean(cut?.introMode), heading=cinematic?-.20+Math.sin(elapsed*.27)*.27:viewYaw;
     let range=car?8.2:4.65;let height=(car?2.65:1.85)+elevation*2.6;
-    if(cinematic){range=10.5;height=4.15;}
+    if(cinematic){range=cut.i<2?7.9+Math.sin(elapsed*.25)*1.5:4.4;height=cut.i<2?2.95+Math.sin(elapsed*.28)*.9:2.31;}
     let x=p.x+Math.sin(heading)*range,z=p.z+Math.cos(heading)*range;
     for(let i=0;i<12&&world.collides(x,z,.40)&&!cinematic;i++){range*=.79;x=p.x+Math.sin(heading)*range;z=p.z+Math.cos(heading)*range;}
     desired.set(x,p.y+height,z);
     if(snap)cam.position.copy(desired);else cam.position.lerp(desired,1-Math.exp(-(cinematic?3:9)*dt));
     look.set(p.x-Math.sin(heading)*(car?2.35:1.3),p.y+(car?1.18:1.25),p.z-Math.cos(heading)*(car?2.35:1.3));
-    if(cinematic){look.x+=2.4;look.y+=1.0;look.z-=2.7;}cam.lookAt(look);world.sky.position.copy(cam.position);
+    if(cinematic){look.x+=cut.i<2?2.4:1.15;look.y+=cut.i<2?1.0:.29;look.z-=cut.i<2?2.7:.54;}else if(activeActivity?.kind==='photo')look.y+=1.5;cam.lookAt(look);world.sky.position.copy(cam.position);
     if(prevLight.distanceTo(p)>7){prevLight.copy(p);world.sun.position.set(p.x+61,91,p.z-51);world.sun.target.position.set(p.x,0,p.z);}
   }
   function frame(now){
-    if(!alive)return;raf=requestAnimationFrame(frame);const dt=clamp((now-last)/1000,.001,.10);last=now;if(paused||mapOpen)return; elapsed+=dt;
+    if(!alive)return;raf=requestAnimationFrame(frame);const dt=clamp((now-last)/1000,.001,.10);last=now;if(paused||mapOpen||guideOpen||radioOpen||puzzle)return; elapsed+=dt;
     const p=car?.root.position||player.root.position;
     if(!cut){
       const forward=axis(['KeyW','ArrowUp'],['KeyS','ArrowDown'],-touch.y), side=axis(['KeyD','ArrowRight'],['KeyA','ArrowLeft'],touch.x), running=keys.has('ShiftLeft')||keys.has('ShiftRight')||touch.run;
@@ -142,28 +228,33 @@ export function startGame(host,{mode,config,progress,icon,onPause,onSave}){
         walk=smooth(walk,mag*max,mag?8:16,dt);
         if(mag>.025){const heading=viewYaw+Math.atan2(-side,forward);player.root.rotation.y=turn(player.root.rotation.y,heading,13,dt);move(p,-Math.sin(heading)*walk*dt,-Math.cos(heading)*walk*dt,.31);}
         player.animate(dt,clamp(walk/2.7,0,1),running?clamp((walk-2)/3,0,1):0);
-        if(walk>1.1){step+=walk*dt;if(step>(running?1.62:1.19)){step=0;sfx('step');}}else step=0;radio.motor(0,false);
+        if(walk>1.1){step+=walk*dt;if(step>(running?1.62:1.19)){step=0;sfx(p.x>227?'sand':'step');}}else step=0;radio.motor(0,false);
       }
-      if(activeActivity){timer-=dt;const a=activeActivity;if(timer<=0){activeActivity=null;refresh();toast('Tempo esgotado','Retorne ao ponto verde para tentar outra vez.');}else if((a.type!=='race'||car)&&target&&dist(p.x,p.z,target)<6){if(++a.i>=a.route.length){credit+=a.type==='race'?250:130;activeActivity=null;refresh();sfx('complete');toast('Atividade concluída',`Recompensa acumulada: $${credit}`);}else{refresh();sfx('select');}}}
-    }else{player.animate(dt,0);radio.motor(0,false);}
+      if(activeActivity){
+        const a=activeActivity;
+        if(a.time && (timer-=dt)<=0){activeActivity=null;refresh();toast('Tempo esgotado','Volte ao ponto verde para tentar de novo.');}
+        else if(car&&target&&((a.kind==='drive'&&dist(p.x,p.z,target)<6)||(a.kind==='park'&&canStopInBay(p,speed,target))))nextJob();
+      }else if(car&&!tracked&&currentStep()?.kind==='park'&&canStopInBay(p,speed,currentStep()))nextStory();
+    }else{player.animate(dt,0,0,cut.lines[cut.i][0]==='Luzia');radio.motor(0,false);}
     freeCamera=Math.max(0,freeCamera-dt);
     for(const c of cars){if(!c.patrol)continue;const v=c.patrol[c.index],p=c.root.position;const d=dist(p.x,p.z,v);if(d<1.5)c.index=(c.index+1)%c.patrol.length;const a=c.patrol[c.index];const heading=Math.atan2(p.x-a.x,p.z-a.z);c.root.rotation.y=turn(c.root.rotation.y,heading,6,dt);const slow=dist(p.x,p.z,(car?.root||player.root).position)<(car?5:3.4);const sp=slow?0:c.rate;p.x-=Math.sin(c.root.rotation.y)*sp*dt;p.z-=Math.cos(c.root.rotation.y)*sp*dt;c.update(dt,sp,0);}
     const focal=(car?.root||player.root).position;
     for(const c of cars)c.root.visible=dist(c.root.position.x,c.root.position.z,focal)<185;
-    for(const n of people){n.t+=dt*.52;const p=n.p.root.position;p.z=n.z+Math.sin(n.t)*n.w;n.p.root.visible=dist(p.x,p.z,focal)<106;if(!n.p.root.visible)continue;n.p.root.rotation.y=turn(n.p.root.rotation.y,Math.cos(n.t)>=0?Math.PI:0,7,dt);n.p.animate(dt,.71,.0);}
+    for(const n of people){n.t+=dt*.52;const p=n.p.root.position;p.z=n.z+Math.sin(n.t)*n.w;n.p.root.visible=dist(p.x,p.z,focal)<106;if(!n.p.root.visible)continue;n.p.root.rotation.y=turn(n.p.root.rotation.y,Math.cos(n.t)>=0?Math.PI:0,7,dt);n.p.animate(dt,n.w>.1?.71:0,.0);}if(nara.root.position.distanceTo(focal)<28)nara.animate(dt,0,0,cut?.lines[cut.i][0]==='Nara');
     for(const {actor,shadow} of shadows){shadow.visible=actor.visible;if(!shadow.visible)continue;const p=actor.position;shadow.position.set(p.x, p.x>212?.131:.047,p.z);shadow.rotation.z=actor.rotation.y;}
-    points.forEach((m,i)=>{m.visible=!cut&&(!activeActivity||activities[i].type!==activeActivity.type);});
+    points.forEach((m,i)=>{m.visible=!cut&&(!activeActivity||sideJobs[i].id!==activeActivity.id);});
+    if(vinyl.visible){vinyl.rotation.set(.4,elapsed*1.3,.6);vinyl.position.y=.64+Math.sin(elapsed*3.)*.12;}
     if(target){pointer.position.y=2.45+Math.sin(elapsed*2.5)*.34;pointer.rotation.y+=dt*.85;marker.scale.setScalar(1+Math.sin(elapsed*2.5)*.08);}
     if(elapsed>toasts)$('.toast').hidden=true;
     if(elapsed>mapTick){mapTick=elapsed+.105;context=cut?null:nearest();const it=$('.interact');if(context&&(!car||Math.abs(speed)<5)){it.hidden=false;const label=context.text;if(it.dataset.label!==label){it.dataset.label=label;it.innerHTML=`<kbd>E</kbd><span>${label}</span>`;}}else it.hidden=true;
       $('.drive').hidden=!car;$('#speed').textContent=String(Math.round(Math.abs(speed)*3.6)).padStart(3,'0');
       const area=districts.reduce((a,b)=>dist(p.x,p.z,a)<dist(p.x,p.z,b)?a:b);$('#minidistrict').textContent=area.name.toUpperCase();
-      $('#mode-label').textContent=activeActivity?`TEMPO · ${Math.ceil(timer)} s`:MODE_LABEL[mode];drawings($('.minimap canvas'),false);
+      $('#mode-label').textContent=activeActivity?.time?`TEMPO · ${Math.ceil(timer)} s`:activeActivity?'ATIVIDADE OPCIONAL':MODE_LABEL[mode];drawings($('.minimap canvas'),false);
     }
-    world.tide(elapsed);camera(dt);renderer.render(scene,cam);
+    world.tide(elapsed);radio.ambient(clamp((p.x-183)/60,0,1),elapsed);camera(dt);renderer.render(scene,cam);
   }
   refresh(); radio.start(mode===2?4:0);
-  if(mode===0&&stage===0&&!progress?.introSeen)story(intro,()=>{onSave({stage:0,introSeen:true});toast('As duas chaves','Siga o marcador dourado até Davi.');},true);
+  if(mode===0&&stage===0&&!progress?.introSeen)story(intro,()=>{progressState.introSeen=true;saveProgress();toast('As duas chaves','Siga o marcador dourado. As atividades verdes são opcionais.');},true);
   camera(.02,true);renderer.render(scene,cam);raf=requestAnimationFrame(frame);
   return {settings,pause(v){paused=v;keys.clear();touch.run=false;resetStick();radio.pause(v);if(v)speech.stop();},destroy(){alive=false;cancelAnimationFrame(raf);events.forEach(fn=>fn());speech.stop();radio.stop();const geometries=new Set(),materials=new Set(),textures=new Set();scene.traverse(o=>{if(o.geometry){geometries.add(o.geometry);if(o.isInstancedMesh)o.dispose();}if(o.material){materials.add(o.material);if(o.material.map)textures.add(o.material.map);} });textures.forEach(t=>t.dispose());materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());renderer.dispose();host.replaceChildren();host.className='';}};
 }

@@ -8,7 +8,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "postbuild": "node scripts/pages-entry.mjs"
+    "postbuild": "node scripts/pages-entry.mjs",
+    "test:game": "node scripts/smoke-game.mjs"
   },
   "repository": {
     "type": "git",

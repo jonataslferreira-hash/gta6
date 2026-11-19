@@ -53,6 +53,12 @@ export function coupe(paint='#bf4e6c',variant=0){
   mesh(body,loft('base',[[.26,.88,-1.94,1.93],[.49,1.02,-2.22,2.12],[.78,1.04,-2.16,2.07],[.94,.95,-1.96,1.91]]),paint,0,0,0);
   mesh(body,loft('glass',[[.92,.83,-1.03,1.31],[1.43,.69,-.32,.68],[1.49,.65,-.20,.65]]),'#454363',0,0,0);
   mesh(body,loft('roof',[[1.43,.70,-.35,.74],[1.51,.65,-.24,.66]]),variant===1?'#ead1c0':paint,0,0,0);
+  if(variant===3){for(const x of [-.19,.19]){
+    mesh(body,box(),'#b43862',x,.953,-1.47,.23,.022,.91);
+    mesh(body,box(),'#b43862',x,1.515,.224,.23,.018,.89);
+    mesh(body,box(),'#b43862',x,.954,1.60,.23,.022,.57);
+  }}
+  if(variant===2){mesh(body,box(),'#ad839d',0,1.04,1.73,1.76,.10,.32);for(const x of [-.56,.56])mesh(body,box(),'#4e3b55',x,.971,1.7,.12,.16,.18);}
   const wheels=[];
   for(const s of [-1,1]){
     for(const z of [-1.38,1.36]){const axle=joint(body,s*.96,.45,z);const spin=joint(axle,0,0,0);const tire=mesh(spin,cy(),'#2a2435',0,0,0,.425,.28,.425);tire.rotation.z=Math.PI/2;const rim=mesh(spin,cy(),'#b59bb4',s*.15,0,0,.258,.045,.258);rim.rotation.z=Math.PI/2;for(let j=0;j<5;j++){const spoke=mesh(spin,box(),'#5e5269',s*.18,0,0,.025,.056,.445);spoke.rotation.x=j*Math.PI/5;}wheels.push({axle,spin,front:z<0});}
@@ -65,4 +71,31 @@ export function coupe(paint='#bf4e6c',variant=0){
   }
   mesh(body,box(),'#433548',0,.57,-2.19,1.35,.12,.075);mesh(body,box(),'#b898a9',0,.44,-2.15,1.81,.1,.074);mesh(body,box(),'#d9b5bc',0,.67,2.088,.35,.15,.042);
   return {root,update(dt,v,turn){body.rotation.z+=(turn*Math.abs(v)*.0025-body.rotation.z)*Math.min(1,dt*6);for(const w of wheels){w.spin.rotation.x-=v*dt/.42;if(w.front)w.axle.rotation.y=turn*.33;}}};
+}
+
+// Rigged, continuous-skin hero with blended authored locomotion clips.
+export function riggedPerson(asset,{accent=null}={}){
+  const actor=new T.Group(), visual=asset.clone(asset.scene), head=visual.getObjectByName('Head');
+  visual.updateMatrixWorld(true);
+  const hair=new T.Group();visual.add(hair);
+  ell(hair,'#281d32',0,1.708,-.006,.098,.11,.100);
+  ell(hair,'#281d32',0,1.643,-.070,.088,.099,.054);
+  const bang=ell(hair,'#38233e',-.038,1.722,.057,.060,.026,.047);bang.rotation.z=-.36;
+  ell(hair,'#33253e',.035,1.717,.047,.057,.032,.063);
+  const pony=joint(hair,0,1.716,-.091);ell(pony,'#3e2a45',0,-.085,-.035,.049,.116,.047).rotation.x=.42;
+  ell(pony,'#2c1b32',.019,-.16,-.065,.035,.086,.04).rotation.z=-.21;
+  const hoops=geom('hero-hoop',()=>new T.TorusGeometry(.020,.0046,6,14));
+  for(const side of [-1,1])mesh(hair,hoops,'#f4ae6e',side*.095,1.602,.009).rotation.y=side*.42;
+  head?.attach(hair);
+  visual.rotation.y=Math.PI;actor.add(visual);
+  visual.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;if(accent&&o.material.name==='MI_Superhero_Female'){o.material=o.material.clone();o.material.color.set(accent);}});
+  const mixer=new T.AnimationMixer(visual), clips=Object.fromEntries(asset.animations.map(c=>[c.name,mixer.clipAction(c)]));
+  let current=clips.Idle_Loop, oneShot=null,clock=0;current.play();
+  function activate(name){const next=clips[name];if(!next||next===current)return;next.reset().setEffectiveWeight(1).play();current.crossFadeTo(next,.21,true);current=next;}
+  return {root:actor, animate(dt,stride,sprint=0,talking=false){
+    clock+=dt;const action=oneShot?'Interact':talking?'Idle_Talking_Loop':stride<.068?'Idle_Loop':sprint>.66?'Sprint_Loop':sprint>.2?'Jog_Fwd_Loop':'Walk_Loop';
+    activate(action);if(action==='Walk_Loop')current.setEffectiveTimeScale(.63+stride*.34);if(action==='Sprint_Loop'||action==='Jog_Fwd_Loop')current.setEffectiveTimeScale(.85+sprint*.13);
+    if(oneShot&&(oneShot-=dt)<=0)oneShot=null;
+    pony.rotation.x=.09*Math.sin(clock*11)*stride;pony.rotation.z=.13*Math.sin(clock*9)*stride;mixer.update(dt);
+  },interact(){oneShot=.78;}};
 }

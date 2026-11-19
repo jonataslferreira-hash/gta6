@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 const base = new URL(process.argv[2] ?? 'http://localhost:4173/');
 if (!base.pathname.endsWith('/')) base.pathname += '/';
 const retries = Number(process.env.PAGES_SMOKE_ATTEMPTS ?? 1);
+const expectedRelease = process.env.PAGES_EXPECT_COMMIT;
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
 const browser = await chromium.launch({ executablePath });
 try {
@@ -23,6 +24,7 @@ try {
         assert(response?.ok(), `Falha ao abrir ${url}: HTTP ${response?.status()}`);
         const html = await response.text();
         assert(html.includes('id="startup"'), `O endereço ainda não serve o HTML desta versão: ${url}`);
+        if (expectedRelease) assert(html.includes(`name="mare-release" content="${expectedRelease}"`), `A publicação atual ainda não chegou a ${url}`);
         assert(!html.includes('/src/main.js'), `Código-fonte servido no lugar do build: ${url}`);
         await page.getByRole('button', { name: 'Iniciar história', exact: true }).waitFor({ timeout: 5000 });
         assert(await page.locator('#startup').isHidden(), 'A tela de carregamento não foi dispensada');

@@ -34,7 +34,7 @@ import icon22 from "lucide-static/icons/car.svg?raw";
 const icons = {"play": icon0, "arrow-up-right": icon1, "compass": icon2, "map-pin": icon3, "chevron-left": icon4, "chevron-right": icon5, "keyboard": icon6, "x": icon7, "volume-x": icon8, "volume-2": icon9, "check": icon10, "settings": icon11, "log-out": icon12, "pause": icon13, "radio": icon14, "map": icon15, "navigation": icon16, "arrow-up": icon17, "arrow-down": icon18, "arrow-left": icon19, "arrow-right": icon20, "hand": icon21, "car": icon22};
 const icon = name => (icons[name] || '').replace('<svg', '<svg aria-hidden="true"');
 const slides = [
-  { art:'vice-keyart', label:'MARÉ ALTA', district:'OCEAN BEACH', mode:'MODO HISTÓRIA', title:['MARÉ','ALTA'], kicker:'UM CONTO DE VICE CITY', copy:'Luzia voltou para Vice City com uma mala leve e uma promessa antiga. Mas nesta cidade, até o pôr do sol tem um preço.', button:'Iniciar história' },
+  { art:'vice-keyart', label:'MARÉ ALTA', district:'OCEAN BEACH', mode:'MODO HISTÓRIA', title:['MARÉ','ALTA'], kicker:'UM CONTO DE VICE CITY', copy:'Luzia voltou para Vice City com duas chaves. Uma é do carro. A outra abre o segredo que ficou no porta-luvas.', button:'Iniciar história' },
   { art:'ocean-drive', label:'OCEAN DRIVE', district:'OCEAN DRIVE', mode:'MODO LIVRE', title:['OCEAN','DRIVE'], kicker:'EXPLORE VICE CITY', copy:'Pegue as chaves, escolha uma estação e siga pela orla. A cidade é sua para explorar, sem um destino marcado.', button:'Explorar a cidade' },
   { art:'after-dark', label:'DEPOIS DO SOL', district:'PORTO VIOLETA', mode:'MODO LIVRE', title:['DEPOIS','DO SOL'], kicker:'VICE CITY À NOITE', copy:'Quando a luz baixa, o Porto Violeta acende. Descubra as ruas da marina, os atalhos do cais e o outro lado da cidade.', button:'Explorar à noite' }
 ];
@@ -42,7 +42,7 @@ const artUrl = art => `${import.meta.env.BASE_URL}art/${art}.jpg`;
 const defaults = { mute:false, volume:65, quality:matchMedia('(pointer: coarse)').matches?'low':'high', voices:true };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
-let config = { ...defaults, ...load('mare-settings', {}) }, progress = load('mare-progress', null), selected = 0, game, busy = false;
+let config = { ...defaults, ...load('mare-settings', {}) }, progress = load('mare-campaign-v2', null), selected = 0, game, busy = false;
 const app = document.querySelector('#app');
 app.innerHTML = `<main class="shell" id="menu">
   <div class="art-stack" aria-hidden="true">${slides.map((s,i) => `<div class="bg-art ${i===0?'active':''}" style="background-image:url('${artUrl(s.art)}')"></div>`).join('')}</div>
@@ -97,14 +97,14 @@ function show(title, body, eyebrow='VICE CITY / MENU') {
   if(!dialog.open) dialog.showModal();
 }
 function settings() {
-  show('Ajustes', `<label class="setting"><span>Qualidade gráfica<small>Alto tem sombras mais nítidas, sem aumentar a exposição.</small></span><select id="quality"><option value="high">Alto</option><option value="low">Leve</option></select></label><label class="setting"><span>Volume geral</span><input id="volume" type="range" min="0" max="100" value="${config.volume}"></label><label class="setting"><span>Dublagem do navegador<small>A voz depende das opções instaladas no aparelho.</small></span><input id="voices" type="checkbox" ${config.voices?'checked':''}></label><button class="primary compact" id="done">Concluir ${icon('check')}</button>`);
+  show('Ajustes', `<label class="setting"><span>Qualidade gráfica<small>Alto tem sombras mais nítidas, sem aumentar a exposição.</small></span><select id="quality"><option value="high">Alto</option><option value="low">Leve</option></select></label><label class="setting"><span>Volume geral</span><input id="volume" type="range" min="0" max="100" value="${config.volume}"></label><label class="setting"><span>Vozes da campanha<small>Dublagem sintética em português, com legendas.</small></span><input id="voices" type="checkbox" ${config.voices?'checked':''}></label><button class="primary compact" id="done">Concluir ${icon('check')}</button>`);
   $('#quality').value = config.quality;
   $('#quality').onchange = e=>{config.quality=e.target.value;apply();};
   $('#volume').oninput = e=>{config.volume=+e.target.value;config.mute=false;apply();};
   $('#voices').onchange = e=>{config.voices=e.target.checked;apply();};
   $('#done').onclick=()=>dialog.close();
 }
-const help = `<dl class="keys"><div><dt>Andar / dirigir</dt><dd>W A S D / ↑ ← ↓ →</dd></div><div><dt>Correr / freio de mão</dt><dd>SHIFT / ESPAÇO</dd></div><div><dt>Interagir / entrar no carro</dt><dd>E</dd></div><div><dt>Trocar estação</dt><dd>R</dd></div><div><dt>Mapa / pausa</dt><dd>M / ESC</dd></div><div><dt>Girar a câmera</dt><dd>Arraste o cenário</dd></div></dl><p class="hint">No celular, os controles aparecem automaticamente na tela.</p>`;
+const help = `<dl class="keys"><div><dt>Andar / dirigir</dt><dd>W A S D / ↑ ← ↓ →</dd></div><div><dt>Correr / freio de mão</dt><dd>SHIFT / ESPAÇO</dd></div><div><dt>Interagir / entrar no carro</dt><dd>E</dd></div><div><dt>Trocar estação</dt><dd>R</dd></div><div><dt>Atividades / mapa / pausa</dt><dd>J / M / ESC</dd></div><div><dt>Girar a câmera</dt><dd>Arraste o cenário</dd></div></dl><p class="hint">No celular, os controles aparecem automaticamente na tela. Ícone ✦: guia de atividades opcionais.</p><a class="credits-link" href="${import.meta.env.BASE_URL}creditos.html" target="_blank" rel="noopener">Créditos de música, vozes e animação</a>`;
 function pause() {
   if(dialog.open) { dialog.close(); return; }
   game?.pause(true);
@@ -118,7 +118,7 @@ async function launch() {
   try {
     const { startGame } = await import('./game.js');
     $('#playfield').hidden=false;
-    game=startGame($('#playfield'), { mode:selected, config, progress, icon, onPause:pause, onSave:p=>{progress=p;save('mare-progress',p);} });
+    game=await startGame($('#playfield'), { mode:selected, config, progress, icon, onPause:pause, onSave:p=>{progress=p;save('mare-campaign-v2',p);} });
     $('#menu').hidden=true;
   } catch (error) {
     console.error(error); $('#playfield').hidden=true;
