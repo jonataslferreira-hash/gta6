@@ -1,4 +1,5 @@
 import * as T from 'three';
+import { idlePerformance } from './idle-performance.js';
 const matCache=new Map();const geomCache=new Map();
 function mat(c,lit=false){const key=`${c}:${lit}`;if(!matCache.has(key))matCache.set(key,lit?new T.MeshBasicMaterial({color:c}):new T.MeshStandardMaterial({color:c,roughness:.77,metalness:.015}));return matCache.get(key);}
 function geom(key,create){if(!geomCache.has(key))geomCache.set(key,create());return geomCache.get(key);}
@@ -204,27 +205,71 @@ export function coupe(paint='#bf4e6c',variant=0){
   }};
 }
 
+// Continuous swept cap. The hairline follows the temples instead of using spheres for bangs.
+function sweptHair(){return geom('hero-swept-cap',()=>{
+  const vertices=[],colors=[],indices=[],n=48,m=15,base=new T.Color('#302027');
+  for(let j=0;j<=m;j++)for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2,front=(1+Math.cos(a))*.5,r=j/m;
+    const span=2.37-front**2*1.24+.16*Math.sin(a+.30)*front**5;
+    const angle=.007+r*span,az=a+(1-r)*.47,flow=1+.015*Math.sin(i*1.7+r*4);
+    vertices.push(Math.sin(az)*Math.sin(angle)*.103*flow,1.664+Math.cos(angle)*.122,Math.cos(az)*Math.sin(angle)*.106*flow-.018);
+    const tint=.9+.13*Math.sin(i*1.2+r*2)+.10*Math.sin(a*7+r*4);colors.push(base.r*tint,base.g*tint,base.b*tint);
+    const k=j*n+i,next=j*n+(i+1)%n;if(j)indices.push(k,next,k-n,next,next-n,k-n);
+  }
+  const g=new T.BufferGeometry();g.setIndex(indices);g.setAttribute('position',new T.Float32BufferAttribute(vertices,3));g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.computeVertexNormals();return g;
+});}
+
 // Rigged, continuous-skin hero with blended authored locomotion clips.
-export function riggedPerson(asset,{accent=null}={}){
+export function riggedPerson(asset,{accent=null,male=false,performance=false,uniform=false,crowd=null}={}){
   const actor=new T.Group(), visual=asset.clone(asset.scene), head=visual.getObjectByName('Head');
   visual.updateMatrixWorld(true);
   const hair=new T.Group();visual.add(hair);
-  ell(hair,'#281d32',0,1.708,-.006,.098,.11,.100);
-  ell(hair,'#281d32',0,1.643,-.070,.088,.099,.054);
-  const bang=ell(hair,'#38233e',-.038,1.722,.057,.060,.026,.047);bang.rotation.z=-.36;
-  ell(hair,'#33253e',.035,1.717,.047,.057,.032,.063);
-  const pony=joint(hair,0,1.716,-.091);ell(pony,'#3e2a45',0,-.085,-.035,.049,.116,.047).rotation.x=.42;
-  ell(pony,'#2c1b32',.019,-.16,-.065,.035,.086,.04).rotation.z=-.21;
-  const hoops=geom('hero-hoop',()=>new T.TorusGeometry(.020,.0046,6,14));
-  for(const side of [-1,1])mesh(hair,hoops,'#f4ae6e',side*.095,1.602,.009).rotation.y=side*.42;
+  const pony=joint(hair,0,1.716,-.091);
+  if(!male){
+    const cap=new T.Mesh(sweptHair(),new T.MeshStandardMaterial({vertexColors:true,roughness:.88,side:T.DoubleSide}));cap.castShadow=true;hair.add(cap);
+    ell(pony,'#302027',-.01,-.069,-.036,.040,.098,.045).rotation.x=.38;
+    ell(pony,'#302027',.008,-.143,-.071,.030,.080,.032).rotation.z=.23;
+    const hoops=geom('hero-hoop',()=>new T.TorusGeometry(.016,.0030,8,16));
+    for(const side of [-1,1])mesh(hair,hoops,'#d9a375',side*.095,1.604,.009).rotation.y=side*.42;
+  }
   head?.attach(hair);
   visual.rotation.y=Math.PI;actor.add(visual);
-  visual.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;if(accent&&o.material.name==='MI_Superhero_Female'){o.material=o.material.clone();o.material.color.set(accent);}});
+  visual.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
+    if(o.material.name.startsWith('MI_Hair_')){o.material=o.material.clone();o.material.color.set('#3f2926');}
+    if(accent&&o.material.name==='MI_Superhero_Female'){o.material=o.material.clone();o.material.color.set(accent);}
+    if(crowd&&o.material.name.startsWith('MI_Superhero_')){
+      o.material=o.material.clone();const tint=new T.Color(crowd.color);const skin=new T.Color(crowd.skin);
+      o.material.customProgramCacheKey=()=>'mare-crowd-v2';
+      o.material.onBeforeCompile=shader=>{
+        shader.uniforms.crowdTint={value:tint};shader.uniforms.crowdSkin={value:skin};
+        shader.vertexShader='varying vec3 crowdRest;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ncrowdRest=position;');
+        shader.fragmentShader='varying vec3 crowdRest;uniform vec3 crowdTint,crowdSkin;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+          vec3 q=crowdRest;bool clothed=q.y<1.52&&abs(q.x)<.68;
+          if(clothed&&q.y>.98){float d=dot(diffuseColor.rgb,vec3(.22,.68,.10));diffuseColor.rgb=mix(diffuseColor.rgb,crowdTint*(.56+d*.76),.83);}
+          else if(!clothed)diffuseColor.rgb*=crowdSkin;`);
+      };
+    }
+    if(uniform&&o.material.name==='MI_Superhero_Male'){
+      o.material=o.material.clone();o.material.customProgramCacheKey=()=> 'miragem-uniform-v1';
+      o.material.onBeforeCompile=shader=>{
+        shader.vertexShader='varying vec3 miragemRest;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nmiragemRest=position;');
+        shader.fragmentShader='varying vec3 miragemRest;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+          vec3 q=miragemRest;
+          if(q.y<1.585&&abs(q.x)<.743){
+            float detail=dot(diffuseColor.rgb,vec3(.21,.71,.08));
+            diffuseColor.rgb=mix(vec3(.044,.057,.072),vec3(.096,.117,.132),clamp(detail*2.6,0.,1.));
+            if(abs(q.y-1.33)<.021&&abs(q.x-.123)<.033&&q.z>.08)diffuseColor.rgb=vec3(.31,.22,.11);
+            if(abs(q.y-1.01)<.030)diffuseColor.rgb*=.47;
+          }`);
+      };
+    }
+  });
   let outfitMesh;visual.traverse(o=>{if(o.isSkinnedMesh&&o.material.name==='MI_Superhero_Female')outfitMesh=o;});
   const originalMap=outfitMesh?.material.map, maps=new Map();
   if(outfitMesh&&!accent)outfitMesh.material=outfitMesh.material.clone();
   function changeOutfit(option){
     if(!outfitMesh||!originalMap?.image||accent)return;
+    if(option.id==='miragem-stage'&&asset.miragemMap){outfitMesh.material.map=asset.miragemMap;outfitMesh.material.needsUpdate=true;return;}
     if(!option.colors){outfitMesh.material.map=originalMap;outfitMesh.material.needsUpdate=true;return;}
     if(!maps.has(option.id)){
       const image=originalMap.image,c=document.createElement('canvas');c.width=image.width;c.height=image.height;
@@ -238,13 +283,67 @@ export function riggedPerson(asset,{accent=null}={}){
     }
     outfitMesh.material.map=maps.get(option.id);outfitMesh.material.needsUpdate=true;
   }
+  let faceMesh,brows;const neck=visual.getObjectByName('neck_01');
+  if(performance)visual.traverse(o=>{
+    if(!o.isSkinnedMesh)return;
+    if(o.name==='Eyebrows'){
+      brows=o;o.geometry=o.geometry.clone();const p=o.geometry.attributes.position,pressure=new Float32Array(p.count*3);
+      for(let i=0;i<p.count;i++){const x=Math.abs(p.getX(i));pressure[i*3+1]=.007-.18*(x-.016);}
+      o.geometry.morphAttributes.position=[new T.Float32BufferAttribute(pressure,3)];o.geometry.morphTargetsRelative=true;o.updateMorphTargets();
+    }
+    if(!o.material.name.startsWith('MI_Superhero_'))return;
+    faceMesh=o;o.geometry=o.geometry.clone();const pos=o.geometry.attributes.position,uv=o.geometry.attributes.uv,delta=new Float32Array(pos.count*3),blink=new Float32Array(pos.count*3);
+    for(let i=0;i<pos.count;i++){
+      const u=uv.getX(i),v=uv.getY(i),x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+      if(y>1.50&&y<1.66&&z>.038&&Math.abs(u-.185)<.063&&v>.252&&v<.343){
+        const weight=Math.max(0,1-Math.abs(x)/.042)**.7*Math.sin(Math.PI*T.MathUtils.clamp((v-.252)/.091,0,1));
+        delta[i*3+1]=weight*(v<.269?.0023:-.021);delta[i*3+2]=weight*-.005;
+      }
+      if(y>(male?1.673:1.628)&&z>.051&&u>.078&&u<.292&&v>.146&&v<.197&&Math.abs(x)>.012){
+        const lid=Math.sin(Math.PI*T.MathUtils.clamp((v-.146)/.051,0,1));blink[i*3+1]=(v<.178?-.015:.007)*lid;
+      }
+    }
+    o.geometry.morphAttributes.position=[new T.Float32BufferAttribute(delta,3),new T.Float32BufferAttribute(blink,3)];o.geometry.morphTargetsRelative=true;o.updateMorphTargets();
+  });
   const mixer=new T.AnimationMixer(visual), clips=Object.fromEntries(asset.animations.map(c=>[c.name,mixer.clipAction(c)]));
-  let current=clips.Idle_Loop, oneShot=null,clock=0;current.play();
-  function activate(name){const next=clips[name];if(!next||next===current)return;next.reset().setEffectiveWeight(1).play();current.crossFadeTo(next,.21,true);current=next;}
+  let current=clips.Idle_Loop, oneShot=null,clock=0,faceTurn=0,faceTilt=0;current?.play();
+  const upper=['upperarm_l','upperarm_r','lowerarm_l','lowerarm_r','thigh_l','thigh_r','calf_l','calf_r','spine_01'].map(n=>visual.getObjectByName(n));
+  let flight=0,idleTime=0,idleMix=0;const axisZ=new T.Vector3(0,0,1),headBase=head?.quaternion.clone(),neckBase=neck?.quaternion.clone(),axisY=new T.Vector3(0,1,0),axisX=new T.Vector3(1,0,0),pose=new T.Quaternion();
+  function activate(name){const next=clips[name];if(!next||next===current)return;next.reset().setEffectiveWeight(1).play();current?.crossFadeTo(next,.21,true);current=next;}
   return {root:actor,outfit:changeOutfit,disposeOutfits(){for(const t of maps.values())t.dispose();}, animate(dt,stride,sprint=0,talking=false){
-    clock+=dt;const action=oneShot?'Interact':talking?'Idle_Talking_Loop':stride<.068?'Idle_Loop':sprint>.66?'Sprint_Loop':sprint>.2?'Jog_Fwd_Loop':'Walk_Loop';
-    activate(action);if(action==='Walk_Loop')current.setEffectiveTimeScale(.63+stride*.34);if(action==='Sprint_Loop'||action==='Jog_Fwd_Loop')current.setEffectiveTimeScale(.85+sprint*.13);
+    clock+=dt;const acting=typeof talking==='object'?talking:null;const action=oneShot?'Interact':(acting?.gesture||(!acting&&talking))?'Idle_Talking_Loop':stride<.068?'Idle_Loop':sprint>.66?'Sprint_Loop':sprint>.2?'Jog_Fwd_Loop':'Walk_Loop';
+    activate(action);if(action==='Walk_Loop')current.setEffectiveTimeScale((acting?.crouch?.73:1)*(.63+stride*.34));if(action==='Sprint_Loop'||action==='Jog_Fwd_Loop')current.setEffectiveTimeScale(.85+sprint*.13);
     if(oneShot&&(oneShot-=dt)<=0)oneShot=null;
     pony.rotation.x=.09*Math.sin(clock*11)*stride;pony.rotation.z=.13*Math.sin(clock*9)*stride;mixer.update(dt);
+    const activePose=acting?.canopy?3:acting?.fall?2:acting?.land||acting?.crouch?1:0;
+    flight+=(activePose-flight)*(1-Math.exp(-dt*(activePose===1?8:5.4)));
+    const low=Math.max(0,1-Math.abs(flight-1)),dive=Math.max(0,1-Math.abs(flight-2)),hung=Math.max(0,1-Math.abs(flight-3));
+    if(flight>.01){
+      upper[8]?.quaternion.multiply(pose.setFromAxisAngle(axisX,low*.29+dive*.16));
+      for(let i=0;i<2;i++){
+        upper[i]?.quaternion.multiply(pose.setFromAxisAngle(axisX,(i?1:-1)*(dive*.82+hung*1.40)));
+        upper[i+2]?.quaternion.multiply(pose.setFromAxisAngle(axisX,(i?1:-1)*(dive*.36+hung*.42)));
+        upper[i+4]?.quaternion.multiply(pose.setFromAxisAngle(axisX,low*.33+hung*.14));
+        upper[i+6]?.quaternion.multiply(pose.setFromAxisAngle(axisX,-low*.53-dive*.21-hung*.29));
+      }
+    }
+    if(performance){
+      const ease=1-Math.exp(-dt*9),talk=acting?.speaking?(acting.voice||0):0;
+      if(brows){const fear=acting?.mood==='fear',tension=fear?1:acting?.mood==='tense'?-.52:0;const w=brows.morphTargetInfluences;w[0]+=(tension-w[0])*ease;}
+      const idle=stride<.06&&!acting?.speaking&&!activePose&&!oneShot;
+      idleMix+=((idle?1:0)-idleMix)*ease;if(idle)idleTime+=dt;else if(idleMix<.025)idleTime=0;
+      const idleBeat=idlePerformance(idleTime+(male?1.95:0),male),scan=idleBeat.yaw*idleMix;
+      if(idleMix>.01){
+        upper[8]?.quaternion.multiply(pose.setFromAxisAngle(axisZ,idleBeat.lean*idleMix)).multiply(pose.setFromAxisAngle(axisX,idleBeat.breath*idleMix));
+        const sleeve=male?1:0,side=male?1:-1;
+        upper[sleeve]?.quaternion.multiply(pose.setFromAxisAngle(axisX,side*idleBeat.cuff*.26*idleMix));
+        upper[sleeve+2]?.quaternion.multiply(pose.setFromAxisAngle(axisX,-side*idleBeat.cuff*.58*idleMix));
+      }
+      faceTurn+=((acting?.look||0)*.44+scan-faceTurn)*ease;faceTilt+=((acting?.pitch||0)+idleBeat.tilt*idleMix-faceTilt)*ease;
+      // Blend back toward the character's own neutral head, retaining a little authored motion.
+      if(head&&headBase)head.quaternion.slerp(headBase,.64).multiply(pose.setFromAxisAngle(axisY,faceTurn)).premultiply(pose.setFromAxisAngle(axisX,faceTilt));
+      if(neck&&neckBase)neck.quaternion.slerp(neckBase,.33).multiply(pose.setFromAxisAngle(axisY,faceTurn*.25));
+      if(faceMesh){const blinkPhase=(clock+(male?1.4:0)+Math.sin(clock*.47)*.37)%3.71;const open=faceMesh.morphTargetInfluences;open[0]+=(Math.min(1,talk*(acting?.mood==='fear'?1.47:1.16))-open[0])*(1-Math.exp(-dt*20));open[1]=Math.max(0,1-Math.abs(blinkPhase-3.46)/.105);}
+    }
   },interact(){oneShot=.78;}};
 }

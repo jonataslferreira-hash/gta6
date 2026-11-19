@@ -1,9 +1,11 @@
 import * as T from 'three';
 import { carShape, circleBox, createCollision } from './collision.js';
+import { casinoSite } from './miragem.js';
+import { jetskiDock } from './watercraft.js';
 import { cityClock } from './daylight.js';
 import { wardrobe, streetSpots, home } from './district-services.js';
-export const XS=[-654,-588,-522,-456,-390,-324,-258,-192,-126,-60,6,72,138,204], ZS=[-300,-234,-168,-102,-36,30,96,162,228,294,360,426,492];
-export const districts=[{x:151,z:70,name:'Ocean Beach'},{x:114,z:-192,name:'Porto Violeta'},{x:-152,z:-133,name:'Distrito Art Déco'},{x:-181,z:167,name:'Miramar'},{x:57,z:193,name:'South Point'},{x:-277,z:-263,name:'Ilha da Alfândega'},{x:-393,z:161,name:'Vila Mangue'},{x:-100,z:417,name:'Doca Sul'},{x:-590,z:151,name:'Jardim das Palmeiras'},{x:-557,z:-166,name:'Distrito Ferroviário'}];
+export const XS=[-786,-720,-654,-588,-522,-456,-390,-324,-258,-192,-126,-60,6,72,138,204], ZS=[-300,-234,-168,-102,-36,30,96,162,228,294,360,426,492,558];
+export const districts=[{x:151,z:70,name:'Ocean Beach'},{x:114,z:-192,name:'Porto Violeta'},{x:-152,z:-133,name:'Distrito Art Déco'},{x:-181,z:167,name:'Miramar'},{x:57,z:193,name:'South Point'},{x:-277,z:-263,name:'Ilha da Alfândega'},{x:-393,z:161,name:'Vila Mangue'},{x:-100,z:417,name:'Doca Sul'},{x:-590,z:151,name:'Jardim das Palmeiras'},{x:-557,z:-166,name:'Distrito Ferroviário'},{x:-751,z:248,name:'Reserva das Garças'},{x:65,z:516,name:'Jardins de Sal'}];
 let seed=9;
 export function random(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
 export function createWorld(scene, night){
@@ -35,7 +37,7 @@ export function createWorld(scene, night){
   const solid=(x,z,w,d,yaw=0)=>props.push({x,z,w,d,yaw,camera:false});
   const angles=new T.Euler(), pos=new T.Vector3(), scale=new T.Vector3(), q=new T.Quaternion(), matrix=new T.Matrix4();
   function put(c,x,y,z,w,h,d,kind='box',rx=0,ry=0,rz=0,em=false,shadow=true){
-    const tileX=Math.floor(x/112),tileZ=Math.floor(z/112),wide=w>70||d>70;const sector=wide?'wide':`${tileX}:${tileZ}`;const key=`${kind}:${em}:${shadow}:${sector}`;if(!groups.has(key))groups.set(key,{kind,matrices:[],colors:[],em,shadow,tileX,tileZ,wide});const group=groups.get(key);
+    const tileX=Math.floor(x/112),tileZ=Math.floor(z/112),wide=w>70||d>70||h>85;const sector=wide?'wide':`${tileX}:${tileZ}`;const key=`${kind}:${em}:${shadow}:${sector}`;if(!groups.has(key))groups.set(key,{kind,matrices:[],colors:[],em,shadow,tileX,tileZ,wide});const group=groups.get(key);
     angles.set(rx,ry,rz);q.setFromEuler(angles);matrix.compose(pos.set(x,y,z),q,scale.set(w,h,d));group.matrices.push(matrix.clone());group.colors.push(new T.Color(c));
   }
   const ground=(c,x,z,w,d,y,kind='box')=>put(c,x,y-.035,z,w,.07,d,kind,0,0,0,false,false);
@@ -106,7 +108,20 @@ export function createWorld(scene, night){
     const x=(XS[ix]+XS[ix+1])/2,z=(ZS[iz]+ZS[iz+1])/2;ground(ix<2?'#779095':iz>=9?'#987891':ix>=8?'#a5879c':'#988598',x,z,48.5,48.5,.12);
     const plaza=((ix-2)+iz*3)%11===4|| (ix===XS.length-2&&[1,6].includes(iz));
     const civic=(x< -455 || z>360);
-    if(civic&&x< -455&&z<65){
+    if(x< -650&&z>72){
+      ground('#678278',x,z,49,49,.14);ground('#456a72',x-4,z+6,28,37,.154);ground('#b69081',x+13,z,3.4,48,.20);ground('#b69081',x,z-13,40,2.2,.201);
+      for(let i=0;i<8;i++){const px=x-17+i*4.7,pz=z+Math.sin(i*2.1)*13;if(i%2===0)palm(px,pz,4.9+i*.25);else put('#48796e',px,.68,pz,4.1,1.25,3.8,'leaf');}
+      if(iz%2===0){bench(x+11,z+11,.45);building(x+17,z+15,4.3,5.6,3.15,'#ad8f7d',1,null);}
+      if(iz===8)sign('RESERVA DAS GARÇAS',x+12,2.05,z+22,7.4,.84,0,'#a8dfc3');
+    }else if(z>490&&x>-210){
+      ground('#798a8a',x,z,49,48,.14);ground('#ba9693',x,z,43,3.8,.161);ground('#ba9693',x,z,3.8,43,.16);
+      for(const xx of [-1,1])for(const zz of [-1,1]){
+        ground(zz===xx?'#5a8a86':'#738b82',x+xx*12,z+zz*13,15,16,.15);
+        for(let j=0;j<3;j++)palm(x+xx*(10+j*2.9),z+zz*(8+(j%2)*5),5.2+j*.42);
+        bench(x+xx*6,z+zz*16,xx*.25);
+      }
+      if(ix%2===0){put('#9d7782',x,.3,z,7.5,.31,7.5,'column');put('#71a7a5',x,.44,z,6.4,.14,6.4,'column');}
+    }else if(civic&&x< -455&&z<65){
       ground('#777786',x,z,48,45,.14);for(const v of [-13,11]){building(x+v,z-7,17,26,5.2,v<0?'#8b9c9d':'#b68784',2,null);put('#705a70',x+v,5.85,z-7,15,.33,19);}
       for(const v of [-14,-8,-2,4,10]){put('#a77977',x+v,1.12,z+15,5.6,2.1,2.6);for(let k=-2;k<=2;k++)put('#ba9a94',x+v+k*.96,1.10,z+16.33,.12,1.97,.086);solid(x+v,z+15,5.61,2.64);}
       if(iz%2===0)sign('ARMAZÉNS VIOLETA',x,3.0,z+24,8,.88,0,'#ecc4a9');
@@ -124,6 +139,26 @@ export function createWorld(scene, night){
     }
     palm(x-22,z+22,5.4+random()*2);lamp(x+20.5,z+22,1);
   }
+  // A street-to-roof landmark that survives the prologue in every mode.
+  const {x:cx,y:cy,z:cz}=casinoSite;
+  blocks.push({x:cx,z:cz,w:10.6,d:23});
+  put('#5e4661',cx,cy*.5-.28,cz,10.6,cy-.56,23,'facade');
+  for(const side of [-1,1]){
+    put('#966f77',cx+side*5.28,cy*.5,cz,.48,cy,21.8,'facade',0,0,0,false,false);
+    put('#e8a8a2',cx+side*5.64,cy*.5,cz-9.82,.13,cy,.23,'box',0,0,0,true,false);
+    put('#4d4155',cx+side*3.49,cy*.49,cz+side*11.61,.54,cy*.97,.31,'facade');
+  }
+  for(let h=6;h<cy-3;h+=5.15){
+    for(const side of [-1,1]){
+      put('#5b6076',cx+side*5.43,h,cz,.22,2.05,19.7,'glass',0,0,0,false,false);
+      put('#9e7980',cx,h+.63,cz+side*11.57,9.2,.24,.22,'box',0,0,0,false,false);
+      for(let cut=-7;cut<=7;cut+=3.5)put((h+cut)%4>1?'#ad8292':'#f8c1a0',cx+side*5.56,h+.25,cz+cut,.033,.096,1.65,'box',0,0,0,(h+cut)%4<1,false);
+    }
+  }
+  for(let h=9;h<=cy;h+=32)put('#b48b8a',cx,h,cz,11.7,.69,24.1,'facade');
+  put('#71546a',cx,cy-.29,cz,12.4,.42,25.4);put('#34273e',cx,2.2,cz,11.1,4.4,23.7,'facade');
+  sign('CASINO MIRAGEM',cx,4.28,cz-11.96,9.4,1.3,Math.PI,'#f9c399');
+  sign('MIRAGEM',cx,cy-4.6,cz+11.57,8.6,1.65,0,'#f6adbd');
   function planter(x,z){
     solid(x,z,1.39,3.15);put('#e3a4b0',x,.51,z,1.45,.07,3.19);
     for(const q of [-1,1])put('#67536e',x+q*.67,.37,z,.043,.13,2.9);
@@ -147,6 +182,11 @@ export function createWorld(scene, night){
   for(let z=-302;z<=308;z+=14){palm(219+(z%3),z,6.3+random()*3.3);if(z%28===6)lamp(214,z,-1);if(z%3===1)bench(225,z);}
   for(let z=-284;z<289;z+=48){const x=236+random()*7;put('#9d788b',x,1,z,.13,2,.13,'cyl');put(z%2?'#f5a4b2':(z%3?'#ef9eab':'#e3b693'),x,2.05,z,3.35,.68,3.35,'tri');put('#c67f9c',x-3,.12,z+1,1.2,.16,2.6,'box',0,.24,0);}
   for(const z of [-248,-222,-196]){ground('#88617b',260,z,36,5,.12);for(let x=245;x<=277;x+=8){put('#d6a1af',x,.54,z-2.38,.16,.9,.16);put('#d6a1af',x,.54,z+2.38,.16,.9,.16);}put('#e0becd',272,.04,z+4,3,.52,8,'leaf');put('#637392',272,.39,z+4,1.75,.52,3,'box');}
+  // The low rental pier borders both the walking area and the simulated water.
+  ground('#956e76',249.6,jetskiDock.z-1.85,18.8,4.0,.143);
+  for(let x=241;x<259;x+=2.4){put('#c2948b',x,.24,jetskiDock.z-3.61,.14,.31,.14);put('#846374',x,-.09,jetskiDock.z-3.42,.28,.56,.28);}
+  for(const z of [jetskiDock.z-3.8,jetskiDock.z+.04]){put('#f4c5a1',244.5,.25,z,.16,.54,.16);put('#dd95a5',244.5,.58,z,.19,.10,.18,'box',0,0,0,true);}
+  sign('JET SKI · ALUGUEL',244.4,2.07,jetskiDock.z-3.7,4.85,.67,0,'#a9ecd9');
   sign('OCEAN DRIVE',214,3.1,26,5,.95);put('#725c77',214,1.3,26,.16,2.6,.16);sign('PORTO VIOLETA',239,3,-218,7,1.35);put('#725c77',239,1.3,-218,.18,2.6,.18);
   sign('MIRAMAR',-165,3.3,171,6,1.25);sign('DISTRITO ART DÉCO',-112,3.3,-96,8,1.25);
   // Ocean Beach is a boardwalk, not another city block: arcades, food stands, bustle and color.
@@ -347,6 +387,6 @@ export function createWorld(scene, night){
     sun.intensity=.60+light*1.11;hemi.intensity=1.01+light*.65;sun.color.copy(blue).lerp(gold,light);hemi.color.copy(blue).lerp(dayLow,.34+light*.66);
     scene.fog.color.copy(nightFog).lerp(dayFog,light);ocean.material.uniforms.night.value=1-light;glowMat.opacity=.23+(1-light)*.53;
   }
-  function lod(x,z,close){const range=close?205:330,r2=range*range;for(const o of segments)o.mesh.visible=(o.x-x)**2+(o.z-z)**2<r2;}
+  function lod(x,z,close){const range=close?240:330,r2=range*range;for(const o of segments)o.mesh.visible=(o.x-x)**2+(o.z-z)**2<r2;}
   return { lod, daylight, looseProps, collides:collision.circle, collidesVehicle:collision.vehicle, sky, sun, hemi, blocks, tide(time){ocean.material.uniforms.clock.value=time;wheel.rotation.z=time*.11;for(const g of gondolas)g.rotation.z=-wheel.rotation.z;} };
 }

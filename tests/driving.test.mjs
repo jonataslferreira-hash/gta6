@@ -19,11 +19,21 @@ test('substeps stop a high-speed car before a thin wall',()=>{
   assert(r.impact>8);assert(!world.vehicle(p.x,p.z,r.yaw));assert(p.z>-1.79);
 });
 test('the tutorial requires gates, stopping and exiting in order',()=>{
-  assert.equal(getawayRoute.length,7);
+  const stop=getawayRoute.length-2;
+  const length=getawayRoute.slice(1).reduce((sum,b,i)=>sum+Math.hypot(b.x-getawayRoute[i].x,b.z-getawayRoute[i].z),0);
+  assert(length>860);
   assert.equal(advanceGetaway(0,{distance:8,speed:10,inCar:true}),0);
   assert.equal(advanceGetaway(0,{distance:3,speed:10,inCar:true}),1);
   assert.equal(advanceGetaway(1,{distance:2,speed:10,inCar:true}),2);
-  assert.equal(advanceGetaway(5,{distance:1,speed:10,inCar:true}),5);
-  assert.equal(advanceGetaway(5,{distance:1,speed:.15,inCar:true}),6);
-  assert.equal(advanceGetaway(6,{distance:1,speed:0,inCar:false}),7);
+  assert.equal(advanceGetaway(stop,{distance:1,speed:10,inCar:true}),stop);
+  assert.equal(advanceGetaway(stop,{distance:1,speed:.15,inCar:true}),stop+1);
+  assert.equal(advanceGetaway(stop+1,{distance:1,speed:0,inCar:false}),stop+2);
+});
+test('acceleration crosses gears with a cut in drive force',()=>{
+  const p={x:0,z:0};let next={...cleanState(),yaw:0,speed:0},sawShift=false;
+  for(let i=0;i<230;i++){
+    next=driveStep(p,next.yaw,next.speed,next,input,.042,()=>false);
+    if(next.shift>0){assert(next.acceleration<2);sawShift=true;}
+  }
+  assert(sawShift);assert(next.gear>=3);assert(next.rpm>1000&&next.rpm<=5900);
 });
