@@ -30,6 +30,8 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: build
+    outputs:
+      page_url: ${{ steps.pages.outputs.page_url }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -40,3 +42,21 @@ jobs:
     steps:
       - uses: actions/deploy-pages@v4
         id: pages
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Abrir o jogo publicado no Chromium
+        env:
+          PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+          PAGES_SMOKE_ATTEMPTS: '15'
+        run: npm test -- "$PAGES_URL"
