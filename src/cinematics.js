@@ -7,6 +7,7 @@ export const castStyles={
   Nara:{portrait:'nara',type:1,skin:'#9b5d49',hair:'#352039',jacket:'#507868',pants:'#3c3352'},
 };
 const locations={
+  casino:['CASINO MIRAGEM','SALÃO PRIVADO'],
   opening:['OCEAN BEACH','19:41 · DOMINGO'],
   meetup:['QUIOSQUE 06','O CARRO DA FUGA'],
   briefcase:['OFICINA DA ORLA','O QUE VEIO NA MALA'],
@@ -48,7 +49,7 @@ export function makeCinematics(scene,world){
     world.sun.intensity=.64;world.hemi.intensity=1;uniforms.top.value.copy(twilight.top);uniforms.bottom.value.copy(twilight.bottom);uniforms.sunColor.value.copy(twilight.sunColor);uniforms.night.value=.7;
     place=id;stage.visible=true;other=['cafe'].includes(place)?'Nara':'Davi';
     const heading=[0,Math.PI,Math.PI/2,-Math.PI/2].find(h=>[[-1.02,-2.3],[1.02,-2.3],[0,-2.65],[0,.18]].every(([x,z])=>!world.collides(p.x+Math.cos(h)*x+Math.sin(h)*z,p.z-Math.sin(h)*x+Math.cos(h)*z,.25,true)))||0;
-    stage.position.set(p.x,.125,p.z);stage.rotation.y=heading;
+    stage.position.set(p.x,id==='casino'?p.y:.125,p.z);stage.rotation.y=id==='casino'?0:heading;
     for(const [name,c] of Object.entries(cast))c.root.visible=name==='Luzia'||(name===other&&place!=='briefcase');
     cast.Luzia.outfit(outfit);cast.Luzia.root.position.set(-.37,0,0);cast.Luzia.root.rotation.y=-.30;
     cast[other].root.position.set(.40,0,.035);cast[other].root.rotation.y=.36;
@@ -95,6 +96,9 @@ export function makeCinematics(scene,world){
       }else{
         active='cockpit';a.set(seat*.42+drift*.18,1.22,-.51+push*.14);b.set(seat,1.11,.20);cam.fov=mobile?40:37;
       }
+    }else if(place==='casino'){
+      const isLuzia=tag==='Luzia',x=isLuzia?-.37:.40;
+      a.set(x+(isLuzia?-.57:.48)+drift,1.71,-(mobile?1.29:1.20));b.set(x+(isLuzia?.20:-.20),1.49,.08);cam.fov=mobile?36:43;
     }else if(active==='insert'){
       a.set(.23,1.48,-.77+push);b.set(.003,1.03,-.018);cam.fov=42;
     }else if(active==='pair'&&!mobile){

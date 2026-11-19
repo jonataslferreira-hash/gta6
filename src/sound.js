@@ -1,3 +1,4 @@
+import { casinoVoices } from './casino-voices.js';
 import { voiceLines } from './voice-lines.js';
 
 const originals=[
@@ -8,11 +9,20 @@ const originals=[
  {station:'Canal Violeta',title:'Luzes do Cais',bpm:83,style:2,chords:[[44,56,59,63,66],[47,54,58,63,66],[42,54,57,61,64],[49,56,61,64,68]],lead:[[75,83,78,80],[78,75,73,70],[73,76,81,85],[80,88,85,80]]},
  {station:'Canal Violeta',title:'Maré de Neon',bpm:88,style:2,chords:[[48,55,58,63,67],[44,56,60,63,67],[46,53,58,62,65],[43,55,58,62,65]],lead:[[79,75,82,79],[84,79,75,72],[77,74,82,77],[74,77,70,67]]}
 ];
+const aero=[
+ ['Bolhas no Vidro',95,[[46,58,62,65,69],[43,55,58,62,65],[48,55,60,64,67],[45,57,60,64,69]],[[77,74,81,84],[70,74,77,79],[76,79,84,88],[81,77,76,72]]],
+ ['Lago de Acrílico',105,[[48,55,60,64,71],[45,57,60,64,67],[41,53,57,60,64],[43,55,59,62,69]],[[72,76,83,79],[76,79,81,84],[77,81,84,88],[79,71,74,81]]],
+ ['Píxeis no Aquário',122,[[41,53,57,60,65],[43,55,58,62,67],[45,57,60,64,69],[44,56,60,63,68]],[[77,84,81,86],[79,82,86,89],[81,84,88,93],[80,84,87,92]]],
+ ['Maré de Cristal',88,[[43,55,59,62,66],[40,52,55,59,66],[45,57,60,64,67],[38,50,54,57,62]],[[79,83,86,90],[78,83,86,90],[84,81,79,76],[78,81,86,90]]],
+ ['Amanhã em 480p',110,[[46,58,62,65,69],[48,55,60,64,67],[45,57,60,64,71],[41,53,57,60,65]],[[77,81,86,89],[79,84,88,91],[76,81,83,88],[77,81,84,89]]]
+];
+const aeroStart=originals.length;for(const [title,bpm,chords,lead] of aero)originals.push({title,bpm,chords,lead,style:2});
 const stations=[
  {name:'Costa FM',tag:'TROPICAL / LATINA',tracks:[['Tropical Breeze','Flan','tropicalbreeze'],['Salsa Con Carne (remix)','DJ Gentoo / Mystical','salcon'],['Saharan Penguin','Enol “Meji” Monte','saharan_penguin'],['Sunset','SnugglyBun','sunset']]},
  {name:'Rádio Aurora',tag:'CHIPTUNE / ELETRÔNICA',tracks:[['Mortimer’s Chipdisko','Lukas Nystrand','chipdisko'],['Midday','SnugglyBun','midday'],['Midday (alternativa)','SnugglyBun','midday_alt'],['Skylevel','SnugglyBun','skylevel']]},
  {name:'Canal Violeta',tag:'AMBIENTE / NOTURNA',tracks:[['Night','SnugglyBun','night'],['Underwater','SnugglyBun','underwater'],['Glacier','SnugglyBun','glacier']]},
- {name:'Maré Alta FM',tag:'SESSÕES ORIGINAIS',tracks:originals.map((x,i)=>[x.title,'Maré Alta',null,i])},
+ {name:'Maré Alta FM',tag:'SESSÕES ORIGINAIS',tracks:originals.slice(0,aeroStart).map((x,i)=>[x.title,'Maré Alta',null,i])},
+ {name:'Aero Mar',tag:'FRUTIGER AERO / RETRÔ',tracks:aero.map(([title],i)=>[title,'Maré Alta',null,aeroStart+i])},
  {name:'Rádio desligado',tag:'SÓ A CIDADE',tracks:[]},
 ];
 let channel=0,song=0,media,atmosphere,engineLayer,engineFilter,engineBed,slowRate=1;
@@ -32,6 +42,7 @@ function tone(freq,t,len,amp,type='sine',cut=3300,bus=music,end=0){
 function hit(t,len,amp,cut,type='highpass',bus=music){if(!ctx)return;const o=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();o.buffer=noise;f.type=type;f.frequency.value=cut;g.gain.setValueAtTime(amp,t);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(f).connect(g).connect(bus);o.start(t,0,len);}
 function schedule(t){
  const tr=originals[current], b=60/(tr.bpm*slowRate), k=tick%16, bar=Math.floor(tick/16)%32, ch=tr.chords[bar%4], section=Math.floor(bar/8), melody=tr.lead[bar%4];
+ if(current>=aeroStart&&[0,3,6,10,13].includes(k)){const note=melody[(section+Math.floor(k/3))%4];tone(hz(note+12),t,b*.42,.047,'sine',3950);tone(hz(note+7),t+b*.19,b*.58,.027,'triangle',2050);}
  if(k===0){for(let i=1;i<5;i++){tone(hz(ch[i]),t+i*.008,b*3.88,.038,tr.style===0?'triangle':'sine',780);if(tr.style===2)tone(hz(ch[i]+12)*1.004,t,b*3.2,.012,'sine');}}
  if((tr.style===0?[0,4,8,12]:tr.style===1?[0,6,10]:[0,9]).includes(k))tone(121,t,.22,.38,'sine',220,music,42);
  if(k===4||k===12){hit(t,.105,.12,1330);tone(163,t,.09,.1,'triangle',560,music,97);}
@@ -62,11 +73,11 @@ export const radio={ready,stations,start(n=0){ready();enabled=true;suspended=fal
  settings(c){gain=c.volume/100;muted=c.mute;if(master)master.gain.setTargetAtTime(muted?0:gain,ctx.currentTime,.04);},
  ambient(coast,t){if(!atmosphere)return;atmosphere.g.gain.setTargetAtTime(coast*(.03+.034*(Math.sin(t*.64)+1)),ctx.currentTime,.35);atmosphere.f.frequency.setTargetAtTime(290+80*Math.sin(t*.61),ctx.currentTime,.32);},
  motor(speed,active){if(!ctx||!engineGain)return;const v=Math.min(speed,25),t=ctx.currentTime;engine.frequency.setTargetAtTime(28+v*3.25,t,.09);engineLayer?.frequency.setTargetAtTime(42+v*4.85,t,.09);engineFilter?.frequency.setTargetAtTime(102+v*7.25,t,.12);engineBed?.gain.setTargetAtTime(active?v*.004:0,t,.14);engineGain.gain.setTargetAtTime(active?.037+v*.0021:0,t,.10);}};
-export function sfx(kind){if(!ctx||!master||muted)return;const t=ctx.currentTime+.006;if(kind==='step'||kind==='sand'){const sand=kind==='sand';hit(t,sand?.148:.086,.06+Math.random()*.018,sand?1340:620+Math.random()*260,sand?'bandpass':'lowpass',master);tone(58+Math.random()*24,t,.09,sand?.020:.042,'sine',240,master,44);}if(kind==='door'){hit(t,.16,.19,380,'lowpass',master);tone(91,t,.13,.16,'triangle',260,master,41);}if(kind==='bump'){hit(t,.16,.13,650,'lowpass',master);}if(kind==='rattle'){hit(t,.10,.09,1300,'bandpass',master);hit(t+.053,.085,.07,800,'bandpass',master);}if(kind==='select'){tone(530,t,.115,.10,'triangle',1750,master);tone(795,t+.047,.14,.074,'sine',1750,master);}if(kind==='complete'){[60,64,67,72].forEach((n,i)=>tone(hz(n),t+i*.09,.45,.14,'triangle',2000,master));}}
+export function sfx(kind){if(!ctx||!master||muted)return;const t=ctx.currentTime+.006;if(kind==='step'||kind==='sand'){const sand=kind==='sand';hit(t,sand?.148:.086,.06+Math.random()*.018,sand?1340:620+Math.random()*260,sand?'bandpass':'lowpass',master);tone(58+Math.random()*24,t,.09,sand?.020:.042,'sine',240,master,44);}if(kind==='door'){hit(t,.16,.19,380,'lowpass',master);tone(91,t,.13,.16,'triangle',260,master,41);}if(kind==='bump'){hit(t,.16,.13,650,'lowpass',master);}if(kind==='jump'){hit(t,.11,.06,1080,'bandpass',master);}if(kind==='chute'){hit(t,.35,.15,520,'lowpass',master);}if(kind==='swing'){hit(t,.13,.10,780,'lowpass',master);}if(kind==='pulse'){tone(480,t,.18,.13,'triangle',1770,master,90);}if(kind==='alarm'){[0,.34,.68].forEach(x=>tone(590,t+x,.21,.10,'sine',1900,master,720));}if(kind==='rattle'){hit(t,.10,.09,1300,'bandpass',master);hit(t+.053,.085,.07,800,'bandpass',master);}if(kind==='select'){tone(530,t,.115,.10,'triangle',1750,master);tone(795,t+.047,.14,.074,'sine',1750,master);}if(kind==='complete'){[60,64,67,72].forEach((n,i)=>tone(hz(n),t+i*.09,.45,.14,'triangle',2000,master));}}
 let voiceConfig={voices:true, volume:65, mute:false}, spoken, speechSerial=0, analyser, samples;
 const voiceBuffers=new Map();
 function loadVoice(text){
-  const file=voiceLines[text];if(!file||!ctx)return null;
+  const file=casinoVoices[text]||voiceLines[text];if(!file||!ctx)return null;
   if(!voiceBuffers.has(file))voiceBuffers.set(file,fetch(`${import.meta.env.BASE_URL}voices/${file}`).then(result=>{
     if(!result.ok)throw new Error('Offline voice');return result.arrayBuffer();
   }).then(data=>ctx.decodeAudioData(data)).catch(()=>{voiceBuffers.delete(file);return null;}));

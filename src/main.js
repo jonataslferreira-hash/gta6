@@ -43,8 +43,8 @@ const defaults = { mute:false, volume:65, quality:matchMedia('(pointer: coarse)'
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
 const oldProgress=load('mare-campaign-v3',load('mare-campaign-v2',null));
-const crimeProgress=load('mare-campaign-v4',null);
-let config = { ...defaults, ...load('mare-settings', {}) }, progress = load('mare-campaign-v5',crimeProgress|| (oldProgress?{side:oldProgress.side||{},outfit:oldProgress.outfit}:null)), selected = 0, game, busy = false;
+const crimeProgress=load('mare-campaign-v5',load('mare-campaign-v4',null));
+let config = { ...defaults, ...load('mare-settings', {}) }, progress = load('mare-campaign-v6',crimeProgress|| (oldProgress?{side:oldProgress.side||{},outfit:oldProgress.outfit}:null)), selected = 0, game, busy = false;
 const app = document.querySelector('#app');
 app.innerHTML = `<main class="shell" id="menu">
   <div class="art-stack" aria-hidden="true">${slides.map((s,i) => `<div class="bg-art ${i===0?'active':''}" style="background-image:url('${artUrl(s.art)}')"></div>`).join('')}</div>
@@ -59,7 +59,7 @@ app.innerHTML = `<main class="shell" id="menu">
     <p class="kicker" id="kicker"></p>
     <h1 class="title" id="hero-title"><span></span><em></em></h1>
     <p class="intro" id="intro"></p>
-    <div class="actions"><button id="launch" class="primary">${icon('play')}<span></span>${icon('arrow-up-right')}</button><button id="secondary" class="secondary">${icon('compass')}<span>Explorar cidade</span></button></div>
+    <div class="actions"><button id="launch" class="primary">${icon('play')}<span></span>${icon('arrow-up-right')}</button><button id="secondary" class="secondary">${icon('compass')}<span>Explorar cidade</span></button><button id="replay-opening" class="secondary" hidden>Rejogar prólogo</button></div>
   </section>
   <aside class="location">${icon('map-pin')}<div><strong id="district"></strong><span>VICE CITY, LEONIDA</span></div></aside>
   <section class="reel" aria-label="Cenas de Vice City">
@@ -84,7 +84,8 @@ function update(i, animate=true) {
   $('#kicker').textContent = s.kicker;
   $('.title span').textContent = s.title[0]; $('.title em').textContent = s.title[1];
   $('#intro').textContent = s.copy; $('#district').textContent = s.district;
-  $('#launch span').textContent = i===0 && (progress?.stage>0||progress?.introSeen) ? 'Continuar história' : s.button;
+  $('#replay-opening').hidden=i!==0||!(progress?.stage>0||progress?.step>0||progress?.casinoSeen);
+  $('#launch span').textContent = i===0 && (progress?.stage>0||progress?.step>0||progress?.casinoSeen) ? 'Continuar história' : s.button;
   $('#secondary').hidden = i!==0; $('#slide-num').textContent = `0${i+1}`;
   $('.track i').style.transform = `translateX(${i*100}%)`;
   if(animate) $('.hero').animate([{opacity:0,transform:'translateY(9px)'},{opacity:1,transform:'translateY(0)'}], {duration:310,easing:'ease-out'});
@@ -95,12 +96,13 @@ function apply() {
   $('#sound').setAttribute('aria-pressed', String(!config.mute));
 }
 function show(title, body, eyebrow='VICE CITY / MENU') {
+  dialog.classList.toggle('pause-shell',title==='Em pausa');
   dialog.classList.toggle('settings-dialog',title==='Ajustes');
   $('#dialog-eyebrow').textContent = eyebrow; $('#dialog-title').textContent = title; $('#dialog-body').innerHTML = body;
   if(!dialog.open) dialog.showModal();
 }
 function settings() {
-  show('Ajustes', `<p class="settings-lead">A cidade do seu jeito.</p><div class="settings-layout"><nav class="settings-tabs" aria-label="Categorias de ajustes"><button type="button" data-settings-tab="video" aria-pressed="true">${icon('settings')} <span>Vídeo</span></button><button type="button" data-settings-tab="sound" aria-pressed="false">${icon('volume-2')} <span>Áudio</span></button><button type="button" data-settings-tab="input" aria-pressed="false">${icon('keyboard')} <span>Controles</span></button></nav><div class="settings-content"><div data-settings-pane="video"><small class="section-tag">01 / IMAGEM</small><h3>Qualidade gráfica</h3><p>O modo Alto melhora as sombras e a nitidez, sem aumentar a exposição da cena.</p><label class="setting"><span>Predefinição</span><select id="quality"><option value="high">Alto</option><option value="low">Leve</option></select></label></div><div data-settings-pane="sound" hidden><small class="section-tag">02 / ÁUDIO</small><h3>Som da cidade</h3><p>Ajuste o rádio, os efeitos e as falas da campanha.</p><label class="setting"><span>Volume geral</span><span class="slider-wrap"><input id="volume" type="range" min="0" max="100" value="${config.volume}"><output id="volume-value" for="volume">${config.volume}%</output></span></label><label class="setting"><span>Vozes em português</span><input id="voices" type="checkbox" ${config.voices?'checked':''}></label></div><div data-settings-pane="input" hidden><small class="section-tag">03 / CONTROLES</small><h3>Câmera do mouse</h3><p>A câmera acompanha o mouse sem clicar. Use F para capturar ou liberar o cursor.</p><label class="setting"><span>Sensibilidade</span><span class="slider-wrap"><input id="mouse-sensitivity" type="range" min="10" max="100" value="${config.mouse}"><output id="mouse-value" for="mouse-sensitivity">${config.mouse}%</output></span></label><p>Rodela ou Q: roda de rádio. Clique direito: centralizar a câmera.</p></div></div></div><div class="settings-foot"><span>ALTERAÇÕES SALVAS AUTOMATICAMENTE</span><button class="primary compact" id="done">Concluir ${icon('check')}</button></div>`,'VICE CITY / PREFERÊNCIAS');
+  show('Ajustes', `<p class="settings-lead">A cidade do seu jeito.</p><div class="settings-layout"><nav class="settings-tabs" aria-label="Categorias de ajustes"><button type="button" data-settings-tab="video" aria-pressed="true">${icon('settings')} <span>Vídeo</span></button><button type="button" data-settings-tab="sound" aria-pressed="false">${icon('volume-2')} <span>Áudio</span></button><button type="button" data-settings-tab="input" aria-pressed="false">${icon('keyboard')} <span>Controles</span></button></nav><div class="settings-content"><div data-settings-pane="video"><small class="section-tag">01 / IMAGEM</small><h3>Qualidade gráfica</h3><p>O modo Alto melhora as sombras e a nitidez, sem aumentar a exposição da cena.</p><label class="setting"><span>Predefinição</span><select id="quality"><option value="high">Alto</option><option value="low">Leve</option></select></label></div><div data-settings-pane="sound" hidden><small class="section-tag">02 / ÁUDIO</small><h3>Som da cidade</h3><p>Ajuste o rádio, os efeitos e as falas da campanha.</p><label class="setting"><span>Volume geral</span><span class="slider-wrap"><input id="volume" type="range" min="0" max="100" value="${config.volume}"><output id="volume-value" for="volume">${config.volume}%</output></span></label><label class="setting"><span>Vozes em português</span><input id="voices" type="checkbox" ${config.voices?'checked':''}></label></div><div data-settings-pane="input" hidden><small class="section-tag">03 / CONTROLES</small><h3>Câmera do mouse</h3><p>A câmera acompanha o mouse sem clicar. O cursor fica invisível no cenário. Use F para travar ou liberar o mouse.</p><label class="setting"><span>Sensibilidade</span><span class="slider-wrap"><input id="mouse-sensitivity" type="range" min="10" max="100" value="${config.mouse}"><output id="mouse-value" for="mouse-sensitivity">${config.mouse}%</output></span></label><p>Segure Ctrl e role para escolher o equipamento; solte para confirmar. Q abre a roda do rádio. Clique direito: centralizar a câmera.</p></div></div></div><div class="settings-foot"><span>ALTERAÇÕES SALVAS AUTOMATICAMENTE</span><button class="primary compact" id="done">Concluir ${icon('check')}</button></div>`,'VICE CITY / PREFERÊNCIAS');
   $('#quality').value=config.quality;
   for(const tab of dialog.querySelectorAll('[data-settings-tab]'))tab.onclick=()=>{
     for(const button of dialog.querySelectorAll('[data-settings-tab]'))button.setAttribute('aria-pressed',String(button===tab));
@@ -112,21 +114,27 @@ function settings() {
   $('#voices').onchange=e=>{config.voices=e.target.checked;apply();};
   $('#done').onclick=()=>dialog.close();
 }
-const help = `<dl class="keys"><div><dt>Andar / dirigir</dt><dd>W A S D / ↑ ← ↓ →</dd></div><div><dt>Correr / freio de mão</dt><dd>SHIFT / ESPAÇO</dd></div><div><dt>Interagir / entrar no carro</dt><dd>E / CLIQUE ESQUERDO</dd></div><div><dt>Olhar / centralizar a câmera</dt><dd>MOUSE LIVRE / CLIQUE DIREITO</dd></div><div><dt>Capturar ou liberar o cursor</dt><dd>F</dd></div><div><dt>Roda do rádio / próxima estação</dt><dd>RODELA OU Q / R</dd></div><div><dt>Atividades / mapa / pausa</dt><dd>J / M / ESC</dd></div></dl><p class="hint">No celular, arraste o cenário para olhar e toque em ◎ para abrir a roda do rádio. O ícone ✦ abre as atividades opcionais. Nas cutscenes, as falas avançam sozinhas; E ou Espaço adianta a fala atual.</p><a class="credits-link" href="${import.meta.env.BASE_URL}creditos.html" target="_blank" rel="noopener">Créditos de música, vozes e animação</a>`;
+const help = `<dl class="keys"><div><dt>Andar / dirigir</dt><dd>W A S D / ↑ ← ↓ →</dd></div><div><dt>Correr / freio de mão</dt><dd>SHIFT / ESPAÇO</dd></div><div><dt>Pular a pé / frear no carro</dt><dd>ESPAÇO</dd></div><div><dt>Equipar na roda</dt><dd>SEGURE CTRL · ROLE · SOLTE</dd></div><div><dt>Interagir / entrar no carro</dt><dd>E / CLIQUE ESQUERDO</dd></div><div><dt>Olhar / centralizar a câmera</dt><dd>MOUSE LIVRE / CLIQUE DIREITO</dd></div><div><dt>Capturar ou liberar o cursor</dt><dd>F</dd></div><div><dt>Roda do rádio / próxima estação</dt><dd>Q / R</dd></div><div><dt>Atividades / mapa / pausa</dt><dd>J / M / ESC</dd></div></dl><p class="hint">No celular, arraste o cenário para olhar e toque em ◎ para abrir a roda de equipamento. O ícone ✦ abre as atividades opcionais. Nas cutscenes, as falas avançam sozinhas; E ou Espaço adianta a fala atual.</p><a class="credits-link" href="${import.meta.env.BASE_URL}creditos.html" target="_blank" rel="noopener">Créditos de música, vozes e animação</a>`;
 function pause() {
   if(dialog.open) { dialog.close(); return; }
   game?.pause(true);
-  show('Em pausa', `<div class="pause-actions"><button class="primary compact" id="resume">Voltar ao jogo ${icon('play')}</button><button class="secondary" id="in-options">${icon('settings')} Ajustes</button><button class="secondary" id="in-guide">${icon('keyboard')} Controles</button><button class="secondary" id="quit">${icon('log-out')} Menu principal</button></div>`,'VICE CITY / PAUSA');
+  show('Em pausa', `<nav class="pause-actions" aria-label="Menu de pausa"><button id="resume">${icon('play')} <span>Voltar ao jogo</span><kbd>ESC</kbd></button><button id="pause-map">${icon('map')} <span>Mapa</span><kbd>M</kbd></button><button id="in-options">${icon('settings')} <span>Ajustes</span></button><button id="in-guide">${icon('keyboard')} <span>Controles</span></button><button id="quit">${icon('log-out')} <span>Menu principal</span></button></nav><div class="pause-signature"><i></i> LEONIDA · COSTA SUL</div>`,'MARÉ ALTA / VICE CITY');
   $('#resume').onclick=()=>dialog.close(); $('#in-options').onclick=settings; $('#in-guide').onclick=()=>show('Controles',help);
+  $('#pause-map').onclick=()=>{dialog.addEventListener('close',()=>game?.openMap(),{once:true});dialog.close();};
   $('#quit').onclick=()=>{game.destroy();game=null;dialog.close();$('#playfield').hidden=true;$('#menu').hidden=false;radio.stop();update(selected,false);};
+  const items=[...dialog.querySelectorAll('.pause-actions button')];let selectedItem=0;
+  const highlight=i=>{selectedItem=(i+items.length)%items.length;items.forEach((el,j)=>el.classList.toggle('selected',j===selectedItem));};
+  items.forEach((button,i)=>{button.onpointerenter=()=>highlight(i);button.onfocus=()=>highlight(i);});highlight(0);items[0].focus();
+  dialog.onkeydown=e=>{if(!dialog.classList.contains('pause-shell')||!['ArrowDown','ArrowUp'].includes(e.code))return;e.preventDefault();items[(selectedItem+(e.code==='ArrowDown'?1:-1)+items.length)%items.length].focus();};
 }
-async function launch() {
+async function launch(replay=false) {
   if(busy || game) return;
   busy=true; $('#launch span').textContent='Carregando…';
   try {
     const { startGame } = await import('./game.js');
     $('#playfield').hidden=false;
-    game=await startGame($('#playfield'), { mode:selected, config, progress, icon, onPause:pause, onSave:p=>{progress=p;save('mare-campaign-v5',p);} });
+    const prior=progress,seed=replay?{...prior,stage:0,step:0,casinoSeen:false}:progress;
+    game=await startGame($('#playfield'), { mode:selected, config, progress:seed, icon, onPause:pause, onSave:p=>{const ahead=replay&&(prior?.stage*100+(prior?.step||0)>p.stage*100+p.step);progress=ahead?{...p,stage:prior.stage,step:prior.step}:p;save('mare-campaign-v6',progress);} });
     $('#menu').hidden=true;
   } catch (error) {
     console.error(error); $('#playfield').hidden=true;
@@ -137,6 +145,7 @@ $('#home').onclick=()=>update(0); $('#campaign').onclick=()=>update(0); $('#expl
 $('#options').onclick=settings; $('#guide').onclick=()=>show('Controles',help);
 $('#prev').onclick=()=>update((selected+2)%3); $('#next').onclick=()=>update((selected+1)%3);
 document.querySelectorAll('.card').forEach(el=>el.onclick=()=>update(+el.dataset.slide));
+$('#replay-opening').onclick=()=>{radio.ready();launch(true);};
 $('#launch').onclick=()=>{radio.ready();sfx('select');launch();}; $('#secondary').onclick=()=>{update(1);radio.ready();sfx('select');launch();};
 $('#sound').onclick=()=>{config.mute=!config.mute;radio.ready();apply(); if(!config.mute)sfx('select');};
 $('#close-dialog').onclick=()=>dialog.close(); dialog.addEventListener('close',()=>game?.pause(false));

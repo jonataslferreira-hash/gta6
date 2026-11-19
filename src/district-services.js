@@ -11,3 +11,5 @@ export const streetSpots=[
   {id:'coffee',name:'Café na Janela',x:215.8,z:-42.5,action:'Pedir um café na janela',glyph:'☕'},
   {id:'market',name:'Mercado do Porto',x:238.7,z:-208.5,action:'Ler o quadro de chegadas',glyph:'◈'},
 ];
+
+export const home={name:'Casa de Luzia e Davi',x:222.3,z:168.7,entryX:219.1};

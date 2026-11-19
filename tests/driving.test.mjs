@@ -19,11 +19,11 @@ test('substeps stop a high-speed car before a thin wall',()=>{
   assert(r.impact>8);assert(!world.vehicle(p.x,p.z,r.yaw));assert(p.z>-1.79);
 });
 test('the tutorial requires gates, stopping and exiting in order',()=>{
-  assert.equal(getawayRoute.length,4);
+  assert.equal(getawayRoute.length,7);
   assert.equal(advanceGetaway(0,{distance:8,speed:10,inCar:true}),0);
   assert.equal(advanceGetaway(0,{distance:3,speed:10,inCar:true}),1);
   assert.equal(advanceGetaway(1,{distance:2,speed:10,inCar:true}),2);
-  assert.equal(advanceGetaway(2,{distance:1,speed:10,inCar:true}),2);
-  assert.equal(advanceGetaway(2,{distance:1,speed:.15,inCar:true}),3);
-  assert.equal(advanceGetaway(3,{distance:1,speed:0,inCar:false}),4);
+  assert.equal(advanceGetaway(5,{distance:1,speed:10,inCar:true}),5);
+  assert.equal(advanceGetaway(5,{distance:1,speed:.15,inCar:true}),6);
+  assert.equal(advanceGetaway(6,{distance:1,speed:0,inCar:false}),7);
 });
