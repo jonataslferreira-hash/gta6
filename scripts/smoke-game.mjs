@@ -4,7 +4,8 @@ import { campaign } from '../src/missions.js';
 
 const entry = new URL(process.argv[2] ?? 'http://localhost:4173/jogar.html').href;
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
-const browser = await chromium.launch({ executablePath, args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader', ...(executablePath ? ['--no-zygote','--single-process'] : [])] });
+const launchBrowser=()=>chromium.launch({ executablePath, args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader', ...(executablePath ? ['--no-zygote','--single-process'] : [])] });
+let browser = await launchBrowser();
 const desktop = await browser.newPage({ viewport: { width: 640, height: 440 } });
 const errors = [];
 const delivered = new Set();
@@ -13,25 +14,59 @@ desktop.on('console', message => { if (message.type() === 'error') errors.push(m
 desktop.on('response', response => { if (response.ok() || response.status() === 206) delivered.add(new URL(response.url()).pathname); });
 
 try {
-  await desktop.addInitScript(() => localStorage.setItem('mare-settings', '{"quality":"low","volume":55}'));
+  await desktop.addInitScript(() => {
+    localStorage.setItem('mare-settings', '{"quality":"low","volume":55}');
+    window.speakers=[];
+    new MutationObserver(()=>{const next=document.getElementById('speaker')?.textContent;if(next&&window.speakers.at(-1)!==next)window.speakers.push(next);}).observe(document,{subtree:true,childList:true,characterData:true});
+    const originalStart=AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start=function(...args){
+      if(!this.loop&&this.buffer?.duration>1)this.addEventListener('ended',()=>{window.finishedVoice=(window.finishedVoice||0)+1;},{once:true});
+      return originalStart.apply(this,args);
+    };
+    const NativeAudio=window.Audio;window.Audio=class extends NativeAudio {constructor(...args){super(...args);window.lastRadio=this;}};
+  });
+  desktop.setDefaultTimeout(30_000);
   await desktop.goto(entry);
+  await desktop.locator('#options').click();
+  await desktop.locator('[data-settings-tab="input"]').click();
+  await desktop.locator('#mouse-sensitivity').fill('62');
+  assert.equal(await desktop.locator('#mouse-value').textContent(),'62%');
+  await desktop.locator('#done').click();
   const voice = desktop.waitForResponse(r => r.url().endsWith('/voices/line-01.mp3'));
   await desktop.getByRole('button', {name:'Iniciar história',exact:true}).click();
   assert((await voice).ok());
-  await desktop.locator('#speaker').waitFor();
-  assert.equal(await desktop.locator('#speaker').textContent(), 'Luzia');
+  assert.equal(await desktop.evaluate(()=>window.speakers[0]),'Davi');
   assert([...delivered].some(path => path.endsWith('/models/luzia.glb')));
-  for (let i=0; i<4; i++) await desktop.locator('#advance').click();
+  await desktop.waitForFunction(()=>window.speakers.includes('Luzia'),{},{timeout:20000});
+  assert(await desktop.evaluate(()=>window.finishedVoice>0),'O diálogo deve avançar após o término do áudio.');
+  await desktop.keyboard.press('Escape');
+  await desktop.getByRole('heading',{name:'Em pausa'}).waitFor();
+  const pausedLine=await desktop.locator('#line').textContent();
+  await desktop.waitForTimeout(450);
+  assert.equal(await desktop.locator('#line').textContent(),pausedLine);
+  await desktop.locator('#resume').click();
+  for(let i=0;i<6&&(await desktop.locator('.caption').isVisible());i++)await desktop.keyboard.press('KeyE');
+  await desktop.locator('.caption').waitFor({state:'hidden'});
+  await desktop.locator('#getaway-card[data-step="0"]').waitFor();
+  await desktop.keyboard.down('KeyW');
+  await desktop.locator('#getaway-card[data-step="1"]').waitFor({timeout:46000});
+  await desktop.keyboard.up('KeyW');
+  assert(await desktop.locator('.drive').isVisible());
+  await desktop.locator('#skip-getaway').click();
+  await desktop.locator('#getaway-card').waitFor({state:'hidden'});
+  assert(await desktop.evaluate(()=>JSON.parse(localStorage.getItem('mare-campaign-v5')).getawaySeen));
+  console.log('Cutscene passou para a direção e o primeiro checkpoint respondeu ao acelerador.');
   assert(await desktop.locator('.touch').isHidden());
   await desktop.keyboard.press('j');
   await desktop.locator('#jobs-panel').waitFor();
   assert.equal(await desktop.locator('#jobs-list article').count(), 6);
   await desktop.locator('[data-track="arcade"]').click();
-  await desktop.getByText('✦ Fliperama do Píer', {exact:true}).click();
+  await desktop.getByText('✦ Fliperama do Píer', {exact:true}).waitFor();
+  await desktop.mouse.click(322,184);
   await desktop.getByRole('heading', {name:'Memória neon'}).waitFor();
   await desktop.getByText('Sua vez.').waitFor();
   for (const key of [0,2,1,3,2]) await desktop.locator(`[data-puzzle="${key}"]`).click();
-  let state = await desktop.evaluate(() => JSON.parse(localStorage.getItem('mare-campaign-v2')));
+  let state = await desktop.evaluate(() => JSON.parse(localStorage.getItem('mare-campaign-v5')));
   assert.equal(state.side.arcade, 1);
   assert.equal(state.stage, 0);
   await desktop.locator('#hud-radio').click();
@@ -41,12 +76,35 @@ try {
   await desktop.getByText(/Midday — SnugglyBun/).waitFor();
   await desktop.locator('#close-radio').click();
   assert([...delivered].some(path => path.includes('/radio/')));
+  // The compass tracks camera heading; no mouse button is held here.
+  await desktop.mouse.click(306,174,{button:'right'});
+  await desktop.waitForFunction(()=>document.getElementById('compass').textContent==='N');
+  await desktop.mouse.move(310,174);
+  await desktop.mouse.move(450,174,{steps:5});
+  await desktop.waitForFunction(()=>document.getElementById('compass').textContent!=='N');
+  await desktop.mouse.wheel(0,120);
+  await desktop.getByRole('dialog',{name:'Roda de estações'}).waitFor();
+  assert((await desktop.locator('.world-view').evaluate(el=>getComputedStyle(el).filter)).includes('blur'));
+  assert(await desktop.evaluate(()=>window.lastRadio.playbackRate<1));
+  await desktop.getByRole('button',{name:'Canal Violeta',exact:true}).click();
+  assert(await desktop.locator('.radio-wheel').isHidden());
+  assert(await desktop.evaluate(()=>window.lastRadio.playbackRate===1));
+  await desktop.mouse.click(310,174,{button:'right'});
+  await desktop.keyboard.down('s');await desktop.keyboard.down('d');
+  await desktop.getByText(/Trocar roupa · Vestiário Neon/).waitFor({timeout:17000});
+  await desktop.keyboard.up('s');await desktop.keyboard.up('d');
+  await desktop.getByText(/Trocar roupa · Vestiário Neon/).click();
+  await desktop.locator('[data-outfit="coast"]').click();
+  assert.equal(await desktop.locator('[data-outfit="coast"]').getAttribute('aria-pressed'),'true');
+  assert.equal(await desktop.evaluate(()=>JSON.parse(localStorage.getItem('mare-campaign-v5')).outfit),'coast');
+  await desktop.locator('#close-wardrobe').click();
+  console.log('Mouse sem arrastar, roda com áudio lento e vestiário salvos.');
   console.log('Abertura, guia, fliperama, rádio, voz e modelo carregados.');
 
   // Resume a legitimate checkpoint to cover campaign puzzle without repeating the drive.
   await desktop.evaluate(() => {
-    const saved = JSON.parse(localStorage.getItem('mare-campaign-v2'));
-    localStorage.setItem('mare-campaign-v2', JSON.stringify({...saved, stage:1, step:1}));
+    const saved = JSON.parse(localStorage.getItem('mare-campaign-v5'));
+    localStorage.setItem('mare-campaign-v5', JSON.stringify({...saved, stage:1, step:1}));
   });
   await desktop.reload();
   await desktop.getByRole('button', {name:'Continuar história',exact:true}).click();
@@ -55,16 +113,22 @@ try {
   await desktop.getByText(/Não foi essa/).waitFor();
   await desktop.locator(`[data-puzzle="${campaign[1].steps[1].puzzle.order[0]}"]`).click();
   await desktop.locator('#mission-name').filter({hasText:'O lado de fora'}).waitFor();
-  state = await desktop.evaluate(() => JSON.parse(localStorage.getItem('mare-campaign-v2')));
+  state = await desktop.evaluate(() => JSON.parse(localStorage.getItem('mare-campaign-v5')));
   assert.equal(state.stage, 2);
   assert.equal(state.side.arcade, 1);
   assert.deepEqual(errors, []);
   console.log('Puzzle da campanha avançou a missão e preservou o progresso opcional.');
 
+  await browser.close();
+  browser=await launchBrowser();
   const mobile = await browser.newPage({ viewport:{width:390,height:780}, isMobile:true, hasTouch:true, deviceScaleFactor:1 });
+  mobile.setDefaultTimeout(25_000);
   await mobile.goto(entry);
   await mobile.locator('#secondary').tap();
   await mobile.locator('#stick').waitFor();
+  await mobile.locator('#hud-wheel').tap();
+  await mobile.locator('.radio-wheel').waitFor();
+  await mobile.locator('[data-wheel-cancel]').tap();
   await mobile.locator('#hud-jobs').tap();
   await mobile.locator('#jobs-panel').waitFor();
   console.log('Joystick e guia acessíveis por toque.');
