@@ -38,13 +38,14 @@ const slides = [
   { art:'ocean-drive', label:'OCEAN DRIVE', district:'OCEAN DRIVE', mode:'MODO LIVRE', title:['OCEAN','DRIVE'], kicker:'EXPLORE VICE CITY', copy:'Pegue as chaves, escolha uma estação e siga pela orla. A cidade é sua para explorar, sem um destino marcado.', button:'Explorar a cidade' },
   { art:'after-dark', label:'DEPOIS DO SOL', district:'PORTO VIOLETA', mode:'MODO LIVRE', title:['DEPOIS','DO SOL'], kicker:'VICE CITY À NOITE', copy:'Quando a luz baixa, o Porto Violeta acende. Descubra as ruas da marina, os atalhos do cais e o outro lado da cidade.', button:'Explorar à noite' }
 ];
+const artUrl = art => `${import.meta.env.BASE_URL}art/${art}.jpg`;
 const defaults = { mute:false, volume:65, quality:matchMedia('(pointer: coarse)').matches?'low':'high', voices:true };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
 let config = { ...defaults, ...load('mare-settings', {}) }, progress = load('mare-progress', null), selected = 0, game, busy = false;
 const app = document.querySelector('#app');
 app.innerHTML = `<main class="shell" id="menu">
-  <div class="art-stack" aria-hidden="true">${slides.map((s,i) => `<div class="bg-art ${i===0?'active':''}" style="background-image:url('/art/${s.art}.jpg')"></div>`).join('')}</div>
+  <div class="art-stack" aria-hidden="true">${slides.map((s,i) => `<div class="bg-art ${i===0?'active':''}" style="background-image:url('${artUrl(s.art)}')"></div>`).join('')}</div>
   <div class="film" aria-hidden="true"></div>
   <header class="topbar">
     <button class="brand" id="home" aria-label="Vice City, início"><span class="brand-mark">VI</span><span class="brand-name">VICE CITY<small>MARÉ ALTA</small></span></button>
@@ -61,7 +62,7 @@ app.innerHTML = `<main class="shell" id="menu">
   <aside class="location">${icon('map-pin')}<div><strong id="district"></strong><span>VICE CITY, LEONIDA</span></div></aside>
   <section class="reel" aria-label="Cenas de Vice City">
     <div class="reel-head"><span><b>◆</b> POSTAIS DA CIDADE</span><div><button id="prev" class="reel-arrow" aria-label="Cena anterior">${icon('chevron-left')}</button><button id="next" class="reel-arrow" aria-label="Próxima cena">${icon('chevron-right')}</button></div></div>
-    <div class="cards">${slides.map((s,i)=>`<button class="card" data-slide="${i}" aria-label="${s.label}"><img src="/art/${s.art}.jpg" alt=""><span class="card-num">0${i+1}</span><span class="card-label">${s.label}</span></button>`).join('')}</div>
+    <div class="cards">${slides.map((s,i)=>`<button class="card" data-slide="${i}" aria-label="${s.label}"><img src="${artUrl(s.art)}" alt=""><span class="card-num">0${i+1}</span><span class="card-label">${s.label}</span></button>`).join('')}</div>
     <div class="reel-index"><strong id="slide-num">01</strong><span class="track"><i></i></span><span>03</span></div>
   </section>
   <footer class="footer"><div class="footer-status"><i></i> <strong>VICE CITY</strong><span></span> LEONIDA, EUA</div><div class="footer-tag">O PARAÍSO TEM UM PREÇO<span>.</span></div><button id="guide">${icon('keyboard')} <span>CONTROLES</span></button></footer>
