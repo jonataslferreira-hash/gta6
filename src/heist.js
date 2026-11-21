@@ -10,7 +10,7 @@ export function glideStep(y,velocity,open,dt){
   const v=open?Math.max(-3.9,velocity+(-3.9-velocity)*(1-Math.exp(-11*dt))):Math.max(-18.6,velocity-13.5*dt);
   return {y:y+v*dt,velocity:v};
 }
-export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=null,announce,onAlarm,onDrop,onLand,onArrival=done=>done(),onSearch=()=>{}, selectHint,effect=()=>{}}){
+export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=null,announce,onAlarm,onDrop,onLand,onArrival=done=>done(),canLand=()=>true,onSearch=()=>{}, selectHint,effect=()=>{}}){
   const root=new T.Group();root.position.set(casinoSite.x,casinoSite.y,casinoSite.z);scene.add(root);
   const solid=[];const cache=new Map();
   const material=(c,g=false)=>{const key=c+g;if(!cache.has(key))cache.set(key,new T.MeshStandardMaterial({color:c,roughness:g?.45:.77,metalness:g?.27:.027,emissive:g?c:0,emissiveIntensity:g?.24:0}));return cache.get(key);};
@@ -48,6 +48,9 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
   }
   for(const [x,z,c] of [[4.53,12.2,'#9da993'],[-4.45,28.3,'#d5a966'],[4.25,5.3,'#b98284']]){
     box(x,.86,z,.74,1.55,.49,'#454052');box(x,.99,z+.25,.40,.57,.025,'#6f6576');box(x,1.12,z+.272,.18,.086,.023,c,{glow:true});
+    box(x,.84,z+.265,.22,.032,.046,'#2b2633');box(x+.16,.93,z+.268,.036,.14,.049,'#c6a68a');
+    for(const k of [-1,1]){box(x+k*.368,.787,z,.043,1.58,.53,'#756676');box(x+k*.306,.15,z+.16,.096,.13,.17,'#2e2634');}
+    for(let i=0;i<4;i++)box(x-.114+i*.071,.65,z+.267,.049,.021,.013,i===2?c:'#382f42',{glow:i===2});
   }
 
   for(const z of [2.6,8.5]){
@@ -81,7 +84,13 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
   }
   for(let n=0;n<5;n++){const z=-4.8+n*.81;box(4.88,.91,z,.86,1.8,.69,'#583e63',{wall:true});box(4.46,1.25,z,.04,.53,.56,n%2===0?'#93bbad':'#e39eaa',{glow:true});box(4.39,.87,z,.20,.12,.56,'#45334d');}
   box(casinoLoot.x,.46,casinoLoot.z,1.34,.93,.80,'#3f3047',{wall:true});box(casinoLoot.x,.95,casinoLoot.z,1.45,.09,.88,'#a17a80');
-  const bag=box(casinoLoot.x,1.14,casinoLoot.z,.53,.29,.35,'#8b5459');const clasp=box(casinoLoot.x,1.15,casinoLoot.z+.18,.24,.06,.027,'#ffba8e',{glow:true});
+  const bag=new T.Group();bag.position.set(casinoLoot.x,1.12,casinoLoot.z);root.add(bag);
+  const bagPart=(x,y,z,w,h,d,color)=>{const m=new T.Mesh(boxGeo,material(color));m.position.set(x,y,z);m.scale.set(w,h,d);bag.add(m);};
+  bagPart(0,0,0,.56,.28,.36,'#754350');bagPart(0,.080,0,.567,.028,.369,'#343144');
+  bagPart(0,-.139,0,.545,.036,.357,'#483544');
+  for(const x of [-.203,.203]){bagPart(x,0,.181,.037,.267,.021,'#bb8b6a');bagPart(x,.133,0,.04,.025,.37,'#a46c57');}
+  bagPart(0,.151,.048,.168,.043,.058,'#2f2531');for(const x of [-.073,.073])bagPart(x,.108,.048,.026,.073,.042,'#2f2531');
+  const clasp=box(casinoLoot.x,1.15,casinoLoot.z+.19,.13,.061,.027,'#ffba8e',{glow:true});
   for(const x of [-4.6,4.6]){box(x,.42,-11.95,3.04,.85,.24,'#6f5a74',{wall:true});box(x,.86,-11.95,3.09,.09,.33,'#b994a9');}
   for(const x of [-1.10,1.10])box(x,.025,-11.3,.16,.048,1.8,'#9fcdb9',{glow:true});
   box(0,2.98,1.95,12.35,.24,18.9,'#38292b');
@@ -128,7 +137,7 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
   const key=new T.PointLight('#ffe0bf',0,6,1.55);key.position.set(-2.9,2.0,10.6);root.add(key);
   const runnerRoot=runner.root;root.add(runnerRoot,ally.root);runnerRoot.position.set(-2.3,.13,14.25);ally.root.position.set(-1.62,.13,14.0);
   const guardCfg=[{x:2.1,z:4.75,phase:0,jacket:'#4d4562'},{x:1.5,z:-3.0,phase:1.5,jacket:'#576575'},{x:-3.6,z:-8.95,phase:3.1,jacket:'#564757'},{x:3.2,z:20.1,phase:2.2,jacket:'#484b5b'},{x:-4.8,z:25.8,phase:3.4,jacket:'#414553'}];
-  const guards=guardCfg.map((cfg,i)=>{const a=makeGuard?.()||person({portrait:i===1?'luzia':'davi',skin:['#976b59','#94645b','#c28f75'][i],jacket:cfg.jacket,hair:'#282137',pants:'#2d273d',type:1});a.root.position.set(cfg.x,.12,cfg.z);root.add(a.root);return {...cfg,a,stun:0,aware:0};});
+  const guards=guardCfg.map((cfg,i)=>{const a=makeGuard?.(cfg,i)||person({portrait:i===1?'luzia':'davi',skin:['#976b59','#94645b','#c28f75'][i],jacket:cfg.jacket,hair:'#282137',pants:'#2d273d',type:1});a.root.position.set(cfg.x,.12,cfg.z);root.add(a.root);return {...cfg,a,stun:0,aware:0};});
   const canopy=new T.Group();canopy.visible=false;
   const chute=new T.Mesh(new T.SphereGeometry(1,24,12,0,Math.PI*2,0,Math.PI*.55),new T.MeshStandardMaterial({color:'#e998b0',roughness:.65,side:T.DoubleSide}));chute.scale.set(2.48,.78,1.07);chute.position.y=3.78;canopy.add(chute);
   const cords=new T.LineSegments(new T.BufferGeometry().setAttribute('position',new T.Float32BufferAttribute([-2.17,3.9,0,-.27,1.2,0,2.17,3.9,0,.27,1.2,0,-1.2,3.66,.80,-.16,1.18,.03,1.2,3.66,.8,.16,1.18,.03],3)),new T.LineBasicMaterial({color:'#f6dbdf'}));canopy.add(cords);root.add(canopy);
@@ -144,14 +153,14 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
   guideArrows.count=0;guideArrows.frustumCulled=false;root.add(guideArrows);
   const guideNode=new T.Object3D();
   const objectivePoint=new T.Vector3(),flatCam=new T.Vector3(),camAnchor=new T.Vector3(),projected=new T.Vector3(),screenMark={x:.5,y:.5,angle:0,meters:0,behind:false,area:'',near:false};
-  let route=[],navTimer=0,navPhase='',navStep=-1,alarmAngle=null,witness=null,openingHint=null,openingSpoken=false;
+  let route=[],navTimer=0,navPhase='',navStep=-1,alarmAngle=null,witness=null,openingHint=null,openingSpoken=false,openingClock=0,allyPath=[],allyClock=0,fallDriftX=0,fallDriftZ=0,landingSpoken=false,dropAnswer=false;
   const p=runnerRoot.position;let phase='title',t=0,walk=0,velocity=0,open=false,air=0,deployAge=0,attack=0,flash=0,noticed=0,readyDrop=false,caught=0,hop=0,hopSpeed=0,hintKey='',stunCount=0,step=0,dropTalk=false,speaker='',voice=0;
   let checkpoint={x:-2.35,z:12.8};
   const target=new T.Vector3(),look=new T.Vector3(),camTo=new T.Vector3(),offset=new T.Vector3();let initialized=false;
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
   const turn=(a,b,k,dt)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*(1-Math.exp(-k*dt));
   function blocked(x,z,r=.28){return Math.abs(x)>5.9-r||z>30.26-r||z<(['escape','air','land','complete'].includes(phase)?-11.85:-7.1)+r||solid.some(b=>Math.abs(x-b.x)<b.w/2+r&&Math.abs(z-b.z)<b.d/2+r)||(phase!=='escape'&&Math.abs(z+7.3)<.18&&Math.abs(x)<1.34);}
-  function visibleFrom(a,b){const length=dist(a,b);for(let d=.42;d<length-.34;d+=.37){const x=T.MathUtils.lerp(a.x,b.x,d/length),z=T.MathUtils.lerp(a.z,b.z,d/length);if(blocked(x,z,.05))return false;}return true;}
+  function visibleFrom(a,b,radius=.05){const length=dist(a,b);for(let d=.42;d<length-.34;d+=.37){const x=T.MathUtils.lerp(a.x,b.x,d/length),z=T.MathUtils.lerp(a.z,b.z,d/length);if(blocked(x,z,radius))return false;}return true;}
   function walkTo(actor,dx,dz,r){const a=actor.position,n=Math.ceil(Math.hypot(dx,dz)/.18)||1;for(let i=0;i<n;i++){if(!blocked(a.x+dx/n,a.z,r))a.x+=dx/n;if(!blocked(a.x,a.z+dz/n,r))a.z+=dz/n;}}
   function hint(title,text,key){const id=title+text+key;if(id===hintKey)return;hintKey=id;selectHint(title,text,key);}
   function updateMarker(){const next=annexSteps[step];if(next){marker.position.set(next.x,.072,next.z+(step===3?1:0));marker.visible=true;}}
@@ -171,9 +180,9 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
   }
   function deploy(){if(open)return;open=true;deployAge=0;effect('chute');canopy.visible=true;canopy.scale.set(.08,.12,.14);runner.interact?.();}
   function jump(){
-    if(phase==='escape'&&p.z<-9.75&&Math.abs(p.x)<3){phase='air';t=0;velocity=-1.4;effect('jump');open=false;air=0;readyDrop=false;marker.visible=false;return true;}
+    if(phase==='escape'&&p.z<-9.75&&Math.abs(p.x)<3){phase='air';t=0;velocity=-1.4;effect('jump');open=false;air=0;readyDrop=false;marker.visible=false;fallDriftX=fallDriftZ=0;runner.jump?.();ally.jump?.();return true;}
     if(phase==='air'&&!open&&readyDrop){deploy();return true;}
-    if((phase==='escape'||phase==='stealth')&&hop<.012){hopSpeed=4.4;effect('jump');runner.interact?.();return true;}
+    if((phase==='escape'||phase==='stealth')&&hop<.012){hopSpeed=4.4;effect('jump');runner.jump?.();return true;}
     return false;
   }
   function action(tool,heading=runnerRoot.rotation.y){
@@ -184,7 +193,7 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
     const hit=guards.filter(g=>g.stun<=0).map(g=>{const q=g.a.root.position,d=dist(p,q);return {g,d,dot:((q.x-p.x)*dx+(q.z-p.z)*dz)/Math.max(d,.1)};}).filter(o=>o.d<(ranged?7.1:1.8)&&o.dot>(ranged?.79:.42)&&visibleFrom(p,o.g.a.root.position)).sort((a,b)=>a.d-b.d)[0];
     if(hit){hit.g.stun=ranged?4.4:3;stunCount++;announce('Segurança atordoado','Continue até o terraço.');}
     if(ranged){const b=aim.geometry.attributes.position,end=hit?.g.a.root.position;b.setXYZ(0,p.x,1.13,p.z);b.setXYZ(1,end?.x??p.x+dx*6.5,1.08,end?.z??p.z+dz*6.5);b.needsUpdate=true;aim.geometry.computeBoundingSphere();flash=.14;}
-    runner.interact?.();
+    runner.attack?.(ranged);
   }
   function update(dt,input,cam){
     t+=dt;attack=Math.max(0,attack-dt);flash=Math.max(0,flash-dt);aim.visible=flash>0;
@@ -192,15 +201,17 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
     voice=input.voice||0;
     if(phase==='title'&&t>2.65){phase='arrival';t=0;marker.visible=false;onArrival(()=>{openingSpoken=true;});}
     if(phase==='arrival'){
+      openingClock+=dt*(openingSpoken||t>26||openingClock<7.05?1:.035);
       const walkIn=t>.8&&t<6.5, drift=Math.sin(t*.61)*.14;
       if(walkIn){walkTo(runnerRoot,.15*dt,-.47*dt,.29);walkTo(ally.root,.18*dt,-.44*dt,.29);}
-      const exchange=T.MathUtils.smootherstep(t,5.8,7.2)*(1-T.MathUtils.smootherstep(t,10.7,openingSeconds));
+      const exchange=T.MathUtils.smootherstep(t,5.8,7.2)*(1-T.MathUtils.smootherstep(openingClock,10.7,openingSeconds));
       runnerRoot.rotation.y=turn(runnerRoot.rotation.y,drift-.45*exchange,4,dt);ally.root.rotation.y=turn(ally.root.rotation.y,.21+.55*exchange,4,dt);
       const leadTalk=input.voiceName==='Luzia',mateTalk=input.voiceName==='Davi';
-      const scan=Math.sin(t*.55)*.26;
-      runner.animate(dt,walkIn?.32:0,0,{speaking:leadTalk,voice,look:leadTalk?-.44:scan,crouch:true,pitch:t<6?-.17:-.13,mood:'tense',gesture:leadTalk&&!walkIn});
-      ally.animate(dt,walkIn?.32:0,0,{speaking:mateTalk,voice,look:mateTalk?.61:-scan,crouch:true,pitch:mateTalk?-.19:-.125,mood:mateTalk?'tense':null,gesture:mateTalk&&!walkIn});
-      if(t>openingSeconds&&(openingSpoken||t>27)){phase='stealth';t=0;updateMarker();}
+      const a=ally.root.position,doorLook={x:-1.71,z:10.2};
+      const aim=(self,next,yaw)=>clamp(Math.atan2(Math.sin(Math.atan2(self.x-next.x,self.z-next.z)-yaw),Math.cos(Math.atan2(self.x-next.x,self.z-next.z)-yaw)),-.85,.85);
+      runner.animate(dt,walkIn?.32:0,0,{speaking:leadTalk,voice,look:aim(p,walkIn?doorLook:a,runnerRoot.rotation.y),sneakWalk:walkIn,pitch:-.075,scene:true,mood:'tense',gesture:leadTalk&&!walkIn});
+      ally.animate(dt,walkIn?.32:0,0,{speaking:mateTalk,voice,look:aim(a,walkIn?doorLook:p,ally.root.rotation.y),sneakWalk:walkIn,pitch:-.06,scene:true,foldArms:exchange>.3,mood:mateTalk?'tense':null,gesture:mateTalk&&!walkIn});
+      if(openingClock>openingSeconds){phase='stealth';t=0;updateMarker();}
     }
     if(phase==='alarm'){
       const d=dist(ally.root.position,p);if(d>1.1){const a=ally.root.position;walkTo(ally.root,(p.x-a.x)*dt*.61,(p.z-a.z)*dt*.61,.27);}
@@ -224,15 +235,30 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
       const max=sneak?1.50:phase==='escape'?5.5:3.12;walk=lerp(walk,has?max:0,1-Math.exp(-dt*8));
       const ox=p.x,oz=p.z;
       if(has){runnerRoot.rotation.y=turn(runnerRoot.rotation.y,angle,12,dt);walkTo(runnerRoot,-Math.sin(angle)*walk*dt,-Math.cos(angle)*walk*dt,.31);}
-      if(hop>0||hopSpeed>0){hopSpeed-=15.6*dt;hop=Math.max(0,hop+hopSpeed*dt);if(!hop)hopSpeed=0;}
+      if(hop>0||hopSpeed>0){hopSpeed-=15.6*dt;hop=Math.max(0,hop+hopSpeed*dt);if(!hop){hopSpeed=0;runner.land?.();}}
       p.y=lerp(p.y,(sneak?-.015:.124)+hop,1-Math.exp(-dt*10));
-      const stride=Math.min(1,Math.hypot(p.x-ox,p.z-oz)/Math.max(dt,.01)/3);runner.animate(dt,stride,phase==='escape'?.79:0,{crouch:sneak,look:sneak?.23:0});
-      const a=ally.root.position,d=dist(a,p),hy=Math.atan2(a.x-p.x,a.z-p.z);
-      if(d>.89){const sp=Math.min((d-.84)*6,walk+.85);walkTo(ally.root,-Math.sin(hy)*sp*dt,-Math.cos(hy)*sp*dt,.24);ally.root.rotation.y=turn(ally.root.rotation.y,hy,10,dt);}
-      a.y=p.y;ally.animate(dt,d>.91?Math.min(1,walk/3):0,phase==='escape'?.61:0,{mood:phase==='escape'?'fear':'tense',look:-.39});
+      const stride=Math.min(1,Math.hypot(p.x-ox,p.z-oz)/Math.max(dt,.01)/3);
+      runner.animate(dt,stride,phase==='escape'?.79:0,{air:hop>.025,crouch:sneak,hold:input.hold,look:sneak?.23:0});
+      const a=ally.root.position,d=dist(a,p),ax=a.x,az=a.z;
+      allyClock-=dt;
+      if(d>1.34){
+        const direct=visibleFrom(a,p,.28);
+        if(!direct&&allyClock<=0){allyPath=indoorRoute(a,{x:p.x,z:p.z,radius:1.02},blocked);allyClock=.36;}
+        let follow=p;
+        if(!direct&&allyPath.length){
+          const index=allyPath.reduce((best,q,i)=>dist(a,q)<dist(a,allyPath[best])?i:best,0);
+          follow=allyPath.slice(index).find(q=>dist(a,q)>.51)||allyPath.at(-1);
+        }
+        const hy=Math.atan2(a.x-follow.x,a.z-follow.z);
+        const sp=Math.min(sneak?2.12:phase==='escape'?5.85:3.6,Math.max(.43,(d-1.18)*3.7));
+        walkTo(ally.root,-Math.sin(hy)*sp*dt,-Math.cos(hy)*sp*dt,.24);
+        if(dist(a,{x:ax,z:az})>.002)ally.root.rotation.y=turn(ally.root.rotation.y,hy,10,dt);
+      }
+      a.y=lerp(a.y,sneak?-.015:.124,1-Math.exp(-dt*10));
+      ally.animate(dt,Math.min(1,Math.hypot(a.x-ax,a.z-az)/(3*Math.max(dt,.01))),phase==='escape'?.72:0,{crouch:sneak,mood:phase==='escape'?'fear':'tense',look:-.19});
       let seen=false;
-      for(const g of guards){const q=g.a.root.position;g.stun=Math.max(0,g.stun-dt);q.y=lerp(q.y,g.stun>0?-.44:.12,1-Math.exp(-dt*6));g.a.root.rotation.z=lerp(g.a.root.rotation.z,g.stun>0?.31:0,1-Math.exp(-dt*6));
-        if(g.stun>0){g.a.animate(dt,0,0,{mood:'shock'});continue;}
+      for(const g of guards){const q=g.a.root.position;g.stun=Math.max(0,g.stun-dt);q.y=lerp(q.y,.12,1-Math.exp(-dt*6));g.a.root.rotation.z=lerp(g.a.root.rotation.z,g.stun>0?.31:0,1-Math.exp(-dt*6));
+        if(g.stun>0){g.a.animate(dt,0,0,{mood:'shock',hurt:Math.min(1,g.stun*1.8)});continue;}
         const gd=dist(p,q),gx=phase==='escape'&&gd<10?p.x:g.x+Math.sin(t*.70+g.phase)*1.20,gz=phase==='escape'&&gd<10?p.z:g.z+Math.cos(t*.43+g.phase)*2.18;
         const h=Math.atan2(q.x-gx,q.z-gz),dd=Math.hypot(q.x-gx,q.z-gz),sp=phase==='escape'?2.55:1.06;
         if(dd>.25&&gd>1.04){walkTo(g.a.root,-Math.sin(h)*sp*dt,-Math.cos(h)*sp*dt,.31);g.a.root.rotation.y=turn(g.a.root.rotation.y,h,7,dt);}
@@ -243,37 +269,53 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
       noticed=lerp(noticed,seen?1:0,1-Math.exp(-dt*2.2));if(!seen)caught=Math.max(0,caught-dt*1.3);
       if(phase==='stealth'&&caught>1.05){p.set(checkpoint.x,.125,checkpoint.z);ally.root.position.set(checkpoint.x+.63,.125,checkpoint.z+.42);caught=noticed=walk=0;initialized=false;announce('Um segurança viu vocês','Abaixe com Shift ao atravessar a área iluminada.');}
 
-      if(phase==='stealth'){const next=annexSteps[step],near=dist(p,next)<2.05;hint(next.title,noticed>.52?'Estão olhando. Abaixe e interrompa a linha de visão.':next.tip,near?'E / INTERAGIR':'WASD · SHIFT');}
+      if(phase==='stealth'){const next=annexSteps[step],near=dist(p,next)<2.05;hint(next.title,noticed>.52?'Estão olhando. Abaixe e interrompa a linha de visão.':next.tip,near?'E / INTERAGIR':'WASD MOVER · SHIFT ABAIXAR');}
       else hint(p.z<-9.7?'Salte do terraço':'Corra para o terraço',p.z<-9.7?'Pule pela abertura antes que eles cheguem.':'Passe pela porta iluminada. Você pode desviar ou atordoar os seguranças.',p.z<-9.7?'ESPAÇO / PULAR':'WASD · CLIQUE PARA USAR');
     }else if(phase==='air'){
       air+=dt;
       if(air>.85&&!dropTalk){dropTalk=true;onDrop(0);}
+      if(air>=7.5&&!dropAnswer){dropAnswer=true;onDrop(3);}
       if(!readyDrop&&air>=chuteWait){readyDrop=true;onDrop(1);}
       if(open)deployAge+=dt;
       const fall=glideStep(p.y,velocity,open,dt);p.y=fall.y;velocity=fall.velocity;
-      const aimX=dropLine.x-casinoSite.x+input.side*(open?2.05:1.1);
-      p.x=lerp(p.x,aimX,1-Math.exp(-dt*(open?.75:.16)));
-      p.z=lerp(p.z,dropLine.z-casinoSite.z,1-Math.exp(-dt*(open?.19:.081)));
-      const sway=(Math.sin(air*1.8)*.07-input.side*.26);
-      runnerRoot.rotation.y=turn(runnerRoot.rotation.y,0,8,dt);runnerRoot.rotation.z=lerp(runnerRoot.rotation.z,sway,1-Math.exp(-dt*4));
-      runner.animate(dt,0,0,{fall:!open,canopy:open,pitch:open?.05:-.18,look:.33,speaking:readyDrop&&deployAge<2,voice});
-      runnerRoot.rotation.x=lerp(runnerRoot.rotation.x,open?-.07:-1.14,1-Math.exp(-dt*(open?4.1:1.8)));
-      ally.root.position.set(p.x+lerp(.64,.35,1-Math.exp(-deployAge*2)),p.y+.038,p.z+.34);ally.root.rotation.x=runnerRoot.rotation.x*.92;ally.root.rotation.y=.09;
-      ally.animate(dt,0,0,{fall:!open,canopy:open,mood:'fear',look:-.57,speaking:!readyDrop,voice});
+      const baseX=dropLine.x-casinoSite.x,baseZ=dropLine.z-casinoSite.z;
+      const altitude=p.y+casinoSite.y,steer=open?6.3:2.25;
+      fallDriftX=clamp(fallDriftX+input.side*steer*dt,-9,25);
+      fallDriftZ=clamp(fallDriftZ-input.forward*steer*dt,-37,18);
+      const nx=lerp(p.x,baseX+fallDriftX,1-Math.exp(-dt*(open?1.45:.34)));
+      const nz=lerp(p.z,baseZ+fallDriftZ,1-Math.exp(-dt*(open?1.31:.21)));
+      const safe=(x,z)=>canLand(x+casinoSite.x,z+casinoSite.z);
+      if(altitude>10||safe(nx,nz)){p.x=nx;p.z=nz;}
+      else{
+        if(safe(nx,p.z))p.x=nx;if(safe(p.x,nz))p.z=nz;
+        if(!safe(p.x,p.z)){
+          fallDriftX=lerp(fallDriftX,0,1-Math.exp(-dt*5));fallDriftZ=lerp(fallDriftZ,0,1-Math.exp(-dt*5));
+          p.x=lerp(p.x,baseX,1-Math.exp(-dt*4));p.z=lerp(p.z,baseZ,1-Math.exp(-dt*4));
+        }
+      }
+      const sway=Math.sin(air*1.8)*.08-input.side*.34,searching=!open&&air>3;
+      const marry=readyDrop?1:clamp((air-8)/8,0,1);
+      runnerRoot.rotation.y=turn(runnerRoot.rotation.y,-input.side*.39,7,dt);runnerRoot.rotation.z=lerp(runnerRoot.rotation.z,sway,1-Math.exp(-dt*4));
+      runner.animate(dt,0,0,{air:air<.64,fall:air>.53&&!open,canopy:open,pitch:open?.05:-.09,look:searching?-.78:.30,speaking:input.voiceName==='Luzia',voice,reach:marry});
+      runnerRoot.rotation.x=lerp(runnerRoot.rotation.x,open?-.07:air<.7?-.24:-1.04,1-Math.exp(-dt*(open?4.1:2.4)));
+      const a=ally.root.position;a.x=lerp(a.x,p.x+(open?.38:.65+.20*Math.sin(air*1.02)*(1-marry)),1-Math.exp(-dt*6));
+      a.y=lerp(a.y,p.y+(open?.03:.24*Math.sin(air*1.87)),1-Math.exp(-dt*24));a.z=lerp(a.z,p.z+(open?.26:.62-.29*marry),1-Math.exp(-dt*6));
+      ally.root.rotation.x=runnerRoot.rotation.x*.89;ally.root.rotation.y=.09;ally.root.rotation.z=-sway*.66;
+      ally.animate(dt,0,0,{air:air<.64,fall:air>.53&&!open,canopy:open,mood:'fear',look:searching?-.82:-.42,speaking:input.voiceName==='Davi',voice,reach:marry});
       if(open){
         const infl=T.MathUtils.smootherstep(deployAge,0,1.4);canopy.position.copy(p);canopy.rotation.z=sway*.67;canopy.scale.set(.08+.92*infl,.12+.88*infl,.14+.86*infl);
-        hint('Desça com o paraquedas','Alinhe com a avenida. O carro está lá embaixo.','A / D PARA AJUSTAR');
-      }else hint(readyDrop?'Puxe a alça':'Em queda',readyDrop?'Luzia encontrou a alça. Abra agora.':'Davi está procurando a alça. Mantenha os dois juntos.',readyDrop?'ESPAÇO / ABRIR':'A / D PARA AJUSTAR');
+        hint('Desça com o paraquedas','Alinhe com a avenida. O carro está lá embaixo.','W A S D / GUIAR');
+      }else hint(readyDrop?'Puxe a alça':'Em queda',readyDrop?'Luzia encontrou a alça. Abra agora.':'Davi está procurando a alça. Mantenha os dois juntos.',readyDrop?'ESPAÇO / ABRIR':'W A S D / GUIAR');
       if(!open&&p.y+casinoSite.y<15){deploy();announce('A alça abriu','Luzia puxou o paraquedas de emergência.');}
-      if(p.y+casinoSite.y<.13){phase='land';t=0;open=false;onDrop(2);}
+      if(p.y+casinoSite.y<.13){phase='land';t=0;open=false;runner.land?.();ally.land?.();onDrop(2,()=>{landingSpoken=true;});}
     }else if(phase==='land'){
       p.y=-casinoSite.y+.125;const a=ally.root.position;a.y=p.y;
       runnerRoot.rotation.x*=Math.exp(-dt*5);ally.root.rotation.x*=Math.exp(-dt*5);
-      runnerRoot.rotation.z*=Math.exp(-dt*5);runner.animate(dt,0,0,{land:true,pitch:.12});ally.animate(dt,0,0,{land:true,mood:'tense',look:-.62,speaking:true,voice});
+      runnerRoot.rotation.z*=Math.exp(-dt*5);runner.animate(dt,0,0,{brace:t<.86,scene:true,pitch:.04,look:-.44});ally.animate(dt,0,0,{brace:t<.86,scene:true,mood:'tense',look:-.62,speaking:input.voiceName==='Davi',voice});
       canopy.position.copy(p);canopy.position.z-=t*1.3;canopy.scale.set(1+t*.20,Math.max(.018,1-t*.57),Math.max(.045,1-t*.23));
       if(t>2.4)canopy.visible=false;
       hint('','','');
-      if(t>3.65){phase='complete';onLand({x:p.x+casinoSite.x,z:p.z+casinoSite.z,stunCount,companion:{x:a.x+casinoSite.x,z:a.z+casinoSite.z,yaw:ally.root.rotation.y}});return;}
+      if(t>5.1&&(landingSpoken||t>10.5)){phase='complete';onLand({x:p.x+casinoSite.x,z:p.z+casinoSite.z,stunCount,companion:{x:a.x+casinoSite.x,z:a.z+casinoSite.z,yaw:ally.root.rotation.y}});return;}
     }
     if(['title','arrival','alarm'].includes(phase))hint('','', '');
     const indoor=!['air','land','complete'].includes(phase),directed=phase==='arrival'||phase==='alarm';
@@ -282,10 +324,10 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
     const chase=phase==='air'||phase==='land',heading=input.yaw,pitch=input.elevation||0;
     let fov=61;
     if(phase==='title'||phase==='arrival'){
-      const shot=openingDolly(phase==='title'?0:t,p,ally.root.position,heading,pitch);
+      const shot=openingDolly(phase==='title'?0:openingClock,p,ally.root.position,heading,pitch);
       camAnchor.set(shot.lx,p.y+shot.ly,shot.lz);flatCam.set(shot.x,p.y+shot.y,shot.z);fov=shot.fov;
       key.position.set(shot.x-.32,Math.min(2.53,shot.y+.35),shot.z-.30);
-      openingHint=t<7.2?'frontal':'handoff';
+      openingHint=openingClock<7.2?'frontal':'handoff';
     }else if(phase==='alarm'){
       const a=ally.root.position,partyAngle=Math.atan2(p.x-a.x,p.z-a.z),blend=T.MathUtils.smootherstep(t,0,1.75);
       camAnchor.set(lerp(p.x,a.x,.45*blend),p.y+lerp(1.28,1.51,blend),lerp(p.z,a.z,.45*blend));
@@ -304,7 +346,8 @@ export function makeHeist(scene,{runner,ally=person(castStyles.Davi),makeGuard=n
     }else{
       const a=ally.root.position;
       const landing=phase==='land'?T.MathUtils.smootherstep(t,0,2.22):0;
-      const orbit=chase?-.51*Math.sin(air*.23)-landing*1.71:heading;
+      const windup=phase==='air'&&!open?T.MathUtils.smootherstep(air,1.5,6)*(1-T.MathUtils.smootherstep(air,13,18)):0;
+      const orbit=chase?-.51*Math.sin(air*.23)-windup*1.26-landing*1.71:heading;
       camAnchor.set(lerp(p.x,a.x,.29*landing),p.y+(chase?lerp(1.13,1.48,landing):1.28),lerp(p.z,a.z,.29*landing));
       const r=chase?lerp(5.5,3.7,landing):2.18,high=chase?lerp(2.24,.61,landing):1.06+pitch*.53;
       flatCam.set(p.x+Math.sin(orbit)*r+.58*Math.cos(orbit),camAnchor.y+high,p.z+Math.cos(orbit)*r-.58*Math.sin(orbit));

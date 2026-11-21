@@ -3,9 +3,10 @@ export const casinoAlarm=[
  ['Luzia','Davi. Olha pra mim, não pra porta. Eu vi uma escada de serviço. Me dá a mão. Na hora que a luz piscar... corre.','tense'],
 ];
 export const casinoDrop=[
- ['Davi','Luz! A alça! Eu não acho a alça! Luzia!','fear'],
- ['Luzia','Me dá o braço! Achei! Abre o meu. Agora, Davi!','shock'],
- ['Davi','Tá... eu tô aqui. Olha os faróis lá embaixo. É o nosso carro. Só... não solta ainda.','tense'],
+ ['Davi','Luz! Eu puxei a fivela errada! Não tô achando a alça!','fear'],
+ ['Luzia','Achei a tua alça. Mão no meu braço. Agora, Davi!','shock'],
+ ['Davi','Luz? Olha pra mim. Consegue ficar de pé? O carro tá ali. Vamos juntos.','tense'],
+ ['Luzia','Davi, olha pra mim! Estica o braço. A gente precisa girar juntos!','tense'],
 ];
 export const streetDialogue=[
  ['Nara','Boa noite! Se for à praia, o vento tá forte perto do cais.'],

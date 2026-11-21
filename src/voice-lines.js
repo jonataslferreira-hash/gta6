@@ -1,4 +1,8 @@
 export const voiceLines = {
+  "Fica mais um pouco? A gente não precisa falar do trabalho agora.": "cena-nara-fica.mp3",
+  "Fico. Só de você pedir assim, já valeu a noite.": "cena-luzia-fico.mp3",
+  "Luz. Vê a televisão no balcão? O sujeito que me deu a planta tá do lado do Avelar. Toma a chave. O nosso carro já era.": "quiosque-davi.mp3",
+  "Não olha de novo. Vai pela praia, sem correr. Eu levo a mala pra oficina. A gente se fala de lá.": "quiosque-luzia.mp3",
   "Olha a orla. Domingo à noite e a cidade inteira fingindo que amanhã não existe.": "line-01.mp3",
   "Bonito. Agora abaixa essa mala antes que alguém do cassino veja.": "line-02.mp3",
   "A do dinheiro tava cheia de papel. Trouxe a que tinha o nome do Avelar.": "line-03.mp3",

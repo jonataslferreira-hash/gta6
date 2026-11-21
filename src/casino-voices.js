@@ -1,4 +1,9 @@
 export const casinoVoices = {
+  "Luz! Eu puxei a fivela errada! Não tô achando a alça!": "queda-davi.mp3",
+  "Achei a tua alça. Mão no meu braço. Agora, Davi!": "queda-encontro.mp3",
+  "Luz? Olha pra mim. Consegue ficar de pé? O carro tá ali. Vamos juntos.": "queda-pouso.mp3",
+  "Davi, olha pra mim! Estica o braço. A gente precisa girar juntos!": "queda-luzia.mp3",
+
   "Luz... ele viu a fita. Olha o rádio dele. Eu falei que ia dar tempo... Que merda. A porta. Ele trancou a porta.": "casino-01.mp3",
   "Davi. Olha pra mim, não pra porta. Eu vi uma escada de serviço. Me dá a mão. Na hora que a luz piscar... corre.": "casino-02.mp3",
   "Luz! A alça! Eu não acho a alça! Luzia!": "casino-03.mp3",
