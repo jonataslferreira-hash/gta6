@@ -13,8 +13,8 @@ import {existsSync} from 'node:fs';
 
 test('the playable prologue goes from stealth to the case, alarm, rooftop and landing',()=>{
   const scene=new T.Scene(),cam=new T.PerspectiveCamera(),runner={root:new T.Group(),animate(){}};let alarm=0,land,release;
-  const dropLines=[];
-  const h=makeHeist(scene,{runner,announce(){},selectHint(){},onDrop(i){dropLines.push(i);},onAlarm(center,end){alarm++;assert(center.y>350);release=end;},onLand(value){land=value;}});
+  const dropLines=[],ally={root:new T.Group(),animate(){}};
+  const h=makeHeist(scene,{runner,ally,announce(){},selectHint(){},onDrop(i,done){dropLines.push(i);done?.();},onAlarm(center,end){alarm++;assert(center.y>350);release=end;},onLand(value){land=value;}});
   const input=(side=0,forward=0)=>({side,forward,yaw:0,elevation:0,crouch:true});
   const advance=(input,condition,n=1600)=>{while(n--&&!condition())h.update(.025,input,cam);assert(condition(),`phase=${h.phase} pos=${runner.root.position.toArray()}`);};
   assert.equal(h.phase,'title');assert.equal(h.interact(),false);advance(input(),()=>h.phase==='arrival');advance(input(),()=>h.phase==='stealth');
@@ -24,17 +24,19 @@ test('the playable prologue goes from stealth to the case, alarm, rooftop and la
     [[3.50,12.45]],[[4.65,19.2],[4.64,24.2],[-4.59,24.2],[-4.55,27.2]],
     [[-4.59,24.2],[4.64,24.2],[4.64,12.4],[-1.90,12.25],[-1.86,5.25],[3.28,5.25]],
     [[0,5.25],[0,-4.4],[-1.52,-4.52]],
-  ].entries()){h.update(.025,input(),cam);assert(h.waypoints.length>4,`route available at stage ${index}`);assert(h.direction.meters>0);for(const step of route)go(...step);assert(h.interactable);assert(h.interact());}
+  ].entries()){h.update(.025,input(),cam);assert(h.waypoints.length>4,`route available at stage ${index}`);assert(h.direction.meters>0);for(const step of route)go(...step);advance(input(),()=>ally.root.position.distanceTo(runner.root.position)<2.8,300);assert(h.interactable);assert(h.interact());}
   assert.equal(alarm,1);assert.equal(h.phase,'alarm');const held=runner.root.position.clone();h.update(.1,input(),cam);assert(held.equals(runner.root.position));assert(runner.root.visible);
   release();assert.equal(h.phase,'escape');h.update(.025,input(),cam);assert(h.waypoints.length>4);h.action('Pulso neon');
   advance(input(1,0),()=>runner.root.position.x>-.55);
   advance(input(0,1),()=>runner.root.position.z<-10.4);assert(h.jump());
   assert.equal(h.phase,'air');assert.equal(h.jump(),false);
   for(let i=0;i<Math.round((chuteWait-.2)/.025);i++)h.update(.025,input(),cam);
-  assert.equal(h.jump(),false);assert.deepEqual(dropLines,[0]);
+  assert.equal(h.jump(),false);assert.deepEqual(dropLines,[0,3]);
   advance(input(),()=>dropLines.includes(1));assert(h.jump());
+  const startX=runner.root.position.x;for(let i=0;i<64;i++)h.update(.025,input(1,1),cam);
+  assert(runner.root.position.x>startX+3,'chute steering actually displaces the runner');
   advance(input(),()=>h.phase==='land');assert(runner.root.visible);
-  advance(input(),()=>h.phase==='complete');assert(Math.abs(land.x-dropLine.x)<3);assert(Math.abs(land.z-dropLine.z)<7);
+  advance(input(),()=>h.phase==='complete');assert(land.x>dropLine.x+6);assert(land.z<dropLine.z-6);
 });
 test('the parachute slows descent without snapping the avatar to the ground',()=>{
   const fast=glideStep(12,-17,false,.15),chute=glideStep(12,-17,true,.15);

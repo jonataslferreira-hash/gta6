@@ -12,4 +12,4 @@ export const streetSpots=[
   {id:'market',name:'Mercado do Porto',x:238.7,z:-208.5,action:'Ler o quadro de chegadas',glyph:'◈'},
 ];
 
-export const home={name:'Casa de Luzia e Davi',x:222.3,z:168.7,entryX:219.1};
+export const home={name:'Casa de Luzia e Davi',x:222.3,z:154.0,entryX:219.1};

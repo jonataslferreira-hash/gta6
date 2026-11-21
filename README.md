@@ -32,6 +32,18 @@ Para verificar também os fluxos jogáveis, rode `npm run test:game` com a prév
 
 ## Playtest visual
 
-Com a prévia rodando, use `npm run test:visual -- http://localhost:4173/jogar.html`. O Chromium abre o jogo em uma sessão nova, fotografa a cartela, a cena em movimento e o HUD, chega ao primeiro objetivo com teclado real e captura a pausa. `--mobile` emula uma tela de toque; `--city` abre o modo livre para conferir a cidade, o mapa e a pausa. Também é possível passar uma pasta de saída depois da URL.
+Com a prévia rodando, use `npm run test:visual -- http://localhost:4173/jogar.html`. O Chromium abre o jogo em uma sessão nova, fotografa a cartela, a cena em movimento e o HUD, chega ao primeiro objetivo com teclado real e captura a pausa. `--mobile` emula uma tela de toque; `--city` abre o modo livre para conferir a cidade, o mapa e a pausa. Também é possível passar uma pasta de saída depois da URL. Use `npm run test:traversal -- http://localhost:4173/jogar.html` para repetir o teste jogável de salto, grade, nado, jet ski e sintonia da Rádio Brasil. As capturas ficam em `.playtest/praia/` por padrão. `npm run test:kiosk` retoma um checkpoint pós-prólogo, caminha até o Quiosque 06 e confere a cutscene dentro do jogo, com câmera dirigida, vozes e retorno à missão. `npm run test:screening` verifica a rota pelo guia, a conversa opcional no Café Sereia e a devolução dos controles. `npm run test:davi` verifica que Davi aparece na calçada, anda, volta para Luzia e que o diálogo com pedestres alterna gravações.
 
 As imagens e `sessao.json` ficam em `.playtest/` por padrão, fora do Git. O relatório identifica o que estava na tela, erros e quais imagens incluem o HUD. O tempo nele é o do navegador de teste e inclui as capturas; não equivale à duração de uma partida. Não há modo de depuração no jogo publicado: o script usa a interface da prévia.
+
+### Movimento, praia e depuração
+
+**Espaço** salta. Diante de uma grade baixa, encare a grade de perto e pressione **Espaço** para transpor com apoio das mãos, se o outro lado estiver livre. Entre no mar pela areia para nadar; volte pela margem para sair. **E** monta no jet ski da área de aluguel em Ocean Beach. **Q** abre o seletor, que agora inclui a **Rádio Brasil**, com duas interpretações digitais de obras de Chiquinha Gonzaga.
+
+Em **Ajustes → Controles**, o modo livre/dev vale a partir da próxima partida, sem sobrescrever a campanha; **F8** adianta a hora nesse modo. A opção de sempre animar menus e troca de personagem permite insistir nas transições mesmo quando o sistema pede movimento reduzido. Por padrão a preferência do aparelho é respeitada.
+
+### Cutscenes e câmera
+
+O mapa, o GPS e o trânsito respeitam os trechos de ruas locais convertidos em parques e pátios.
+
+O **Quiosque 06** acontece atrás do quiosque real da orla: interaja com Davi na campanha. Para ver **Depois do expediente**, marque o Café Sereia no guia (**J**) e fale com Nara na calçada usando Luzia. As duas cenas usam a cidade e os modelos do jogo, com câmera dirigida, sem giro manual. O controle volta ao final (ou em **Esc / Pular cena**). A página **`/cenas.html`** indica onde encontrá-las.

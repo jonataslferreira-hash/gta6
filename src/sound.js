@@ -1,5 +1,6 @@
 import { stationPosition } from './radio-clock.js';
 import { casinoVoices } from './casino-voices.js';
+import { pedestrianRecordings } from './pedestrian-dialogue.js';
 import { voiceLines } from './voice-lines.js';
 
 const originals=[
@@ -16,9 +17,10 @@ const stations=[
  {name:'Canal Violeta',tag:'AMBIENTE / NOTURNA',tracks:[['Night','SnugglyBun','night'],['Underwater','SnugglyBun','underwater'],['Glacier','SnugglyBun','glacier']]},
  {name:'Maré Alta FM',tag:'SESSÕES ORIGINAIS',tracks:originals.map((x,i)=>[x.title,'Maré Alta',null,i])},
  {name:'Aero Mar',tag:'FRUTIGER AERO / RETRÔ',tracks:[['Underwater','SnugglyBun','underwater'],['Crystal Cave + Mysterious Ambience','Alex Smith / congusbongus','jewels'],['Worldmap Ice','SnugglyBun','worldmap_ice'],['Midday','SnugglyBun','midday']]},
+ {name:'Rádio Brasil',tag:'CHORO / TANGO BRASILEIRO',tracks:[['Gaúcho (Corta-Jaca)','Chiquinha Gonzaga','chiquinha-gaucho'],['Água do Vintém','Chiquinha Gonzaga','chiquinha-agua']]},
  {name:'Rádio desligado',tag:'SÓ A CIDADE',tracks:[]},
 ];
-const lengthsByName={chipdisko:158.45,glacier:86.15,jewels:86.41,midday:64,midday_alt:58.18,night:72.73,saharan_penguin:96,salcon:56,skylevel:81.45,sunset:104.73,tropicalbreeze:73.15,underwater:115.20,worldmap_ice:38.4};
+const lengthsByName={'chiquinha-gaucho':65.936,'chiquinha-agua':62.669,chipdisko:158.45,glacier:86.15,jewels:86.41,midday:64,midday_alt:58.18,night:72.73,saharan_penguin:96,salcon:56,skylevel:81.45,sunset:104.73,tropicalbreeze:73.15,underwater:115.20,worldmap_ice:38.4};
 const lengths=stations.map(station=>station.tracks.map(t=>lengthsByName[t[2]]??(128*60/originals[t[3]].bpm)));
 const tuning=lengths.map(d=>Math.random()*d.reduce((a,b)=>a+b,0));const epoch=performance.now()/1000;
 const radioTime=()=>performance.now()/1000-epoch;
@@ -76,7 +78,7 @@ export const radio={ready,stations,start(n=0){ready();enabled=true;suspended=fal
  settings(c){gain=c.volume/100;muted=c.mute;if(master)master.gain.setTargetAtTime(muted?0:gain,ctx.currentTime,.04);},
  ambient(coast,t){if(!atmosphere)return;atmosphere.g.gain.setTargetAtTime(coast*(.03+.034*(Math.sin(t*.64)+1)),ctx.currentTime,.35);atmosphere.f.frequency.setTargetAtTime(290+80*Math.sin(t*.61),ctx.currentTime,.32);},
  motor(speed,active,rpm=null,load=0){if(!ctx||!engineGain)return;const v=Math.min(speed,27),t=ctx.currentTime,base=rpm?20+rpm/69:28+v*3.25;engine.frequency.setTargetAtTime(base,t,.08);engineLayer?.frequency.setTargetAtTime(base*1.43,t,.10);engineFilter?.frequency.setTargetAtTime(108+v*5.1+load*61,t,.12);engineBed?.gain.setTargetAtTime(active?v*.004:0,t,.14);engineGain.gain.setTargetAtTime(active?.037+v*.0021:0,t,.10);}};
-export function sfx(kind){if(!ctx||!master||muted)return;const t=ctx.currentTime+.006;if(kind==='step'||kind==='sand'){const sand=kind==='sand';hit(t,sand?.148:.086,.06+Math.random()*.018,sand?1340:620+Math.random()*260,sand?'bandpass':'lowpass',master);tone(58+Math.random()*24,t,.09,sand?.020:.042,'sine',240,master,44);}if(kind==='door'){hit(t,.16,.19,380,'lowpass',master);tone(91,t,.13,.16,'triangle',260,master,41);}if(kind==='bump'){hit(t,.16,.13,650,'lowpass',master);}if(kind==='jump'){hit(t,.11,.06,1080,'bandpass',master);}if(kind==='chute'){hit(t,.35,.15,520,'lowpass',master);}if(kind==='swing'){hit(t,.13,.10,780,'lowpass',master);}if(kind==='pulse'){tone(480,t,.18,.13,'triangle',1770,master,90);}if(kind==='alarm'){[0,.34,.68].forEach(x=>tone(590,t+x,.21,.10,'sine',1900,master,720));}if(kind==='rattle'){hit(t,.10,.09,1300,'bandpass',master);hit(t+.053,.085,.07,800,'bandpass',master);}if(kind==='select'){tone(530,t,.115,.10,'triangle',1750,master);tone(795,t+.047,.14,.074,'sine',1750,master);}if(kind==='complete'){[60,64,67,72].forEach((n,i)=>tone(hz(n),t+i*.09,.45,.14,'triangle',2000,master));}}
+export function sfx(kind){if(!ctx||!master||muted)return;const t=ctx.currentTime+.006;if(kind==='step'||kind==='sand'){const sand=kind==='sand';hit(t,sand?.148:.086,.06+Math.random()*.018,sand?1340:620+Math.random()*260,sand?'bandpass':'lowpass',master);tone(58+Math.random()*24,t,.09,sand?.020:.042,'sine',240,master,44);}if(kind==='door'){hit(t,.16,.19,380,'lowpass',master);tone(91,t,.13,.16,'triangle',260,master,41);}if(kind==='bump'){hit(t,.16,.13,650,'lowpass',master);}if(kind==='splash'){hit(t,.36,.16,860,'bandpass',master);hit(t+.035,.27,.10,1490,'lowpass',master);}if(kind==='jump'){hit(t,.11,.06,1080,'bandpass',master);}if(kind==='chute'){hit(t,.35,.15,520,'lowpass',master);}if(kind==='swing'){hit(t,.13,.10,780,'lowpass',master);}if(kind==='pulse'){tone(480,t,.18,.13,'triangle',1770,master,90);}if(kind==='alarm'){[0,.34,.68].forEach(x=>tone(590,t+x,.21,.10,'sine',1900,master,720));}if(kind==='rattle'){hit(t,.10,.09,1300,'bandpass',master);hit(t+.053,.085,.07,800,'bandpass',master);}if(kind==='select'){tone(530,t,.115,.10,'triangle',1750,master);tone(795,t+.047,.14,.074,'sine',1750,master);}if(kind==='complete'){[60,64,67,72].forEach((n,i)=>tone(hz(n),t+i*.09,.45,.14,'triangle',2000,master));}}
 // Miragem's score is separate from stations and follows the playable phase.
 let scoreBus,windGain,windFilter,scorePhase='',scoreBeat=0,scoreNext=0,mixPaused=false;
 function initHeistBus(){
@@ -133,7 +135,7 @@ export const titleCue={
 let voiceConfig={voices:true, volume:65, mute:false}, spoken, spokenGain, speechSerial=0, analyser, samples, voicePaused=false, voiceOutput;
 const voiceBuffers=new Map();
 function loadVoice(text){
-  const file=casinoVoices[text]||voiceLines[text];if(!file||!ctx)return null;
+  const file=pedestrianRecordings[text]||casinoVoices[text]||voiceLines[text];if(!file||!ctx)return null;
   if(!voiceBuffers.has(file))voiceBuffers.set(file,fetch(`${import.meta.env.BASE_URL}voices/${file}`).then(result=>{
     if(!result.ok)throw new Error('Offline voice');return result.arrayBuffer();
   }).then(data=>ctx.decodeAudioData(data)).catch(()=>{voiceBuffers.delete(file);return null;}));

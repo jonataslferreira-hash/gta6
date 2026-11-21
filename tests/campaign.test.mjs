@@ -6,7 +6,7 @@ import { voiceLines } from '../src/voice-lines.js';
 
 test('all cinematic beats have a distinct recording and a directed expression',()=>{
   const lines=[...intro,...campaign.flatMap(m=>m.steps.flatMap(s=>s.lines||[]))];
-  assert.equal(lines.length,27);
+  assert.equal(lines.length,23);
   const unique=new Set();
   for(const [actor,line,mood] of lines){
     assert(['Luzia','Davi','Nara','Avelar'].includes(actor));

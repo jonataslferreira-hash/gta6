@@ -11,6 +11,10 @@
     "postbuild": "node scripts/pages-entry.mjs",
     "test:game": "node scripts/smoke-game.mjs",
     "test:unit": "node --test tests/*.test.mjs",
+    "test:davi": "node scripts/smoke-davi.mjs",
+    "test:screening": "node scripts/smoke-screening.mjs",
+    "test:kiosk": "node scripts/smoke-kiosk.mjs",
+    "test:traversal": "node scripts/smoke-traversal.mjs",
     "test:visual": "node scripts/visual-playtest.mjs"
   },
   "repository": {

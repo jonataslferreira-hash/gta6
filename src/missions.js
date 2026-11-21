@@ -22,12 +22,8 @@ export const getawayLines = [
 export const campaign = [
  {name:'01 / A mala errada',steps:[
    {kind:'talk',x:214,z:30,label:'Falar com Davi',goal:'Encontre Davi atrás do Quiosque 06. Descubra o que tinha na mala do cassino.',lines:[
-     ['Davi','O cara que vendeu a planta do cassino acabou de aparecer na TV. Do lado do Avelar.','tense'],
-     ['Luzia','Então o assalto foi uma encomenda. A gente ainda não sabe de quem.','wry'],
-     ['Davi','Troquei de carro. A chave tá no teu bolso. O nosso ainda deve estar rodando com um rastreador.','fear'],
-     ['Luzia','Vai pela praia. Eu passo na oficina e abro a mala. Se te seguirem, não leva ninguém pra casa.','anger'],
-     ['Davi','Você fala igual ao pai quando me pegava mentindo.','wry'],
-     ['Luzia','A diferença é que ele acreditava em você no fim.','cold']
+     ['Davi','Luz. Vê a televisão no balcão? O sujeito que me deu a planta tá do lado do Avelar. Toma a chave. O nosso carro já era.','tense'],
+     ['Luzia','Não olha de novo. Vai pela praia, sem correr. Eu levo a mala pra oficina. A gente se fala de lá.','tense']
    ]},
    {kind:'drive',x:204,z:-77,label:'Saída pela orla',goal:'Volte à avenida pelo lado de trás da oficina.',via:[
      {x:204,z:30,goal:'Pegue um carro. Comece por sair da avenida do quiosque.'},
